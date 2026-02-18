@@ -15,8 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Building2, Users, Shield, Save, UserPlus, Mail, Trash2, Loader2 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Building2, Users, Shield, Save, UserPlus, Trash2, Loader2, Copy, Check } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -25,25 +25,18 @@ type AppRole = Database["public"]["Enums"]["app_role"];
 export default function Settings() {
   const { user } = useAuth();
   const { data: orgId } = useOrganization();
-  const { role, isOwner, canManage } = useRole();
+  const { role: _role, isOwner, canManage } = useRole();
   const { data: members } = useOrgMembers();
   const queryClient = useQueryClient();
 
   const [orgName, setOrgName] = useState("");
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteFullName, setInviteFullName] = useState("");
+  const [invitePhone, setInvitePhone] = useState("");
   const [inviteRole, setInviteRole] = useState<AppRole>("site_engineer");
   const [removingMember, setRemovingMember] = useState<string | null>(null);
-  
-  // Create member state
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [createForm, setCreateForm] = useState({
-    email: "",
-    full_name: "",
-    phone: "",
-    role: "site_engineer" as AppRole,
-  });
-  const [createdPassword, setCreatedPassword] = useState<string | null>(null);
+  const [createdCredentials, setCreatedCredentials] = useState<{ email: string; password: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const { data: org } = useQuery({
     queryKey: ["org-details", orgId],
@@ -108,39 +101,6 @@ export default function Settings() {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  const inviteMember = useMutation({
-    mutationFn: async () => {
-      if (!inviteEmail) throw new Error("Email is required");
-      // Try to find existing user by looking up profiles
-      // If user exists, add them; otherwise, they need to sign up first
-      const { error } = await supabase.from("user_roles").insert({
-        user_id: crypto.randomUUID(), // placeholder - will be resolved
-        organization_id: orgId!,
-        role: inviteRole,
-      });
-      // Since we can't directly invite via client-side admin API,
-      // we'll create an invite record and use magic link approach
-      if (error) {
-        // Fallback: inform user to share signup link
-        toast.success(`Invite noted! Ask ${inviteEmail} to sign up at ${window.location.origin}/auth, then assign their role from Team Members.`);
-        setInviteDialogOpen(false);
-        setInviteEmail("");
-        return;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["member-roles"] });
-      setInviteDialogOpen(false);
-      setInviteEmail("");
-    },
-    onError: () => {
-      // Show the friendly message instead of error
-      toast.success(`Share this link with ${inviteEmail}: ${window.location.origin}/auth — they can sign up and join your organization.`);
-      setInviteDialogOpen(false);
-      setInviteEmail("");
-    },
-  });
-
   const removeMember = useMutation({
     mutationFn: async (userId: string) => {
       const { error } = await supabase
@@ -163,12 +123,11 @@ export default function Settings() {
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("create-team-member", {
         body: {
-          email: createForm.email,
-          full_name: createForm.full_name,
-          phone: createForm.phone || null,
-          role: createForm.role,
+          email: inviteEmail,
+          full_name: inviteFullName,
+          phone: invitePhone || null,
+          role: inviteRole,
           organization_id: orgId,
-          created_by: user?.id,
         },
       });
       if (error) throw error;
@@ -176,13 +135,24 @@ export default function Settings() {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["member-roles"] });
+      setCreatedCredentials({ email: inviteEmail, password: data.temp_password });
+      setInviteEmail("");
+      setInviteFullName("");
+      setInvitePhone("");
+      setInviteRole("site_engineer");
       queryClient.invalidateQueries({ queryKey: ["org-members"] });
-      setCreatedPassword(data.default_password || "Test@123");
-      toast.success("Team member created successfully!");
+      queryClient.invalidateQueries({ queryKey: ["member-roles"] });
+      toast.success("Team member created");
     },
     onError: (err: Error) => toast.error(err.message),
   });
+
+  const copyCredentials = () => {
+    if (!createdCredentials) return;
+    navigator.clipboard.writeText(`Email: ${createdCredentials.email}\nPassword: ${createdCredentials.password}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const getRoleForUser = (userId: string): AppRole => {
     const found = memberRoles?.find((r) => r.user_id === userId);
@@ -263,160 +233,84 @@ export default function Settings() {
 
         <TabsContent value="members" className="space-y-4">
           {isOwner && (
-            <div className="flex justify-end gap-2">
-              <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
-                <UserPlus className="h-4 w-4" /> Create Member
-              </Button>
-              <Button variant="outline" onClick={() => setInviteDialogOpen(true)} className="gap-2">
-                <Mail className="h-4 w-4" /> Invite Existing
-              </Button>
-            </div>
-          )}
-
-          {/* Create Member Dialog */}
-          <Dialog open={createDialogOpen} onOpenChange={(v) => {
-            setCreateDialogOpen(v);
-            if (!v) {
-              setCreateForm({ email: "", full_name: "", phone: "", role: "site_engineer" });
-              setCreatedPassword(null);
-            }
-          }}>
-            <DialogContent>
-              <DialogHeader><DialogTitle>{createdPassword ? "Member Created!" : "Create Team Member"}</DialogTitle></DialogHeader>
-              {createdPassword ? (
-                <div className="space-y-4">
-                  <div className="bg-success/10 border border-success/20 rounded-lg p-4 text-center">
-                    <p className="text-sm text-muted-foreground mb-2">Account created for</p>
-                    <p className="font-semibold">{createForm.full_name}</p>
-                    <p className="text-sm text-muted-foreground">{createForm.email}</p>
-                  </div>
-                  <div className="bg-muted rounded-lg p-4">
-                    <p className="text-sm text-muted-foreground mb-1">Default Password</p>
-                    <div className="flex items-center gap-2">
-                      <code className="text-lg font-mono font-bold">{createdPassword}</code>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          navigator.clipboard.writeText(createdPassword);
-                          toast.success("Password copied!");
-                        }}
-                      >
-                        Copy
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Share these credentials securely. The user should change their password after first login.
-                    </p>
-                  </div>
-                  <Button className="w-full" onClick={() => {
-                    setCreateDialogOpen(false);
-                    setCreateForm({ email: "", full_name: "", phone: "", role: "site_engineer" });
-                    setCreatedPassword(null);
-                  }}>
-                    Done
-                  </Button>
-                </div>
-              ) : (
-                <form onSubmit={(e) => { e.preventDefault(); createMember.mutate(); }} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="createName">Full Name *</Label>
-                    <Input
-                      id="createName"
-                      value={createForm.full_name}
-                      onChange={(e) => setCreateForm({ ...createForm, full_name: e.target.value })}
-                      placeholder="John Doe"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="createEmail">Email *</Label>
-                    <Input
-                      id="createEmail"
-                      type="email"
-                      value={createForm.email}
-                      onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
-                      placeholder="john@company.com"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="createPhone">Phone</Label>
-                    <Input
-                      id="createPhone"
-                      value={createForm.phone}
-                      onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
-                      placeholder="+91 98765 43210"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Role *</Label>
-                    <Select value={createForm.role} onValueChange={(v) => setCreateForm({ ...createForm, role: v as AppRole })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="project_manager">Project Manager</SelectItem>
-                        <SelectItem value="site_engineer">Site Engineer</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="bg-muted/50 p-3 rounded-lg text-sm text-muted-foreground">
-                    <p>A new account will be created with default password: <strong>Test@123</strong></p>
-                    <p className="mt-1">The user can login immediately and should change their password.</p>
-                  </div>
-                  <Button type="submit" className="w-full gap-2" disabled={createMember.isPending}>
-                    {createMember.isPending ? (
-                      <><Loader2 className="h-4 w-4 animate-spin" /> Creating...</>
-                    ) : (
-                      <><UserPlus className="h-4 w-4" /> Create Account</>
-                    )}
-                  </Button>
-                </form>
-              )}
-            </DialogContent>
-          </Dialog>
-
-          {/* Invite Dialog */}
-          <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Invite Team Member</DialogTitle></DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="inviteEmail">Email Address</Label>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <UserPlus className="h-5 w-5" />
+                  Add Team Member
+                </CardTitle>
+                <CardDescription>Create a new account for a team member</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    createMember.mutate();
+                  }}
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+                >
                   <Input
-                    id="inviteEmail"
+                    placeholder="Full name"
+                    value={inviteFullName}
+                    onChange={(e) => setInviteFullName(e.target.value)}
+                    required
+                  />
+                  <Input
                     type="email"
+                    placeholder="Email address"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="colleague@company.com"
+                    required
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label>Role</Label>
+                  <Input
+                    placeholder="Phone (optional)"
+                    value={invitePhone}
+                    onChange={(e) => setInvitePhone(e.target.value)}
+                  />
                   <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as AppRole)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="project_manager">Project Manager</SelectItem>
                       <SelectItem value="site_engineer">Site Engineer</SelectItem>
                     </SelectContent>
                   </Select>
+                  <div className="sm:col-span-2">
+                    <Button type="submit" disabled={createMember.isPending} className="gap-2">
+                      {createMember.isPending ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" /> Creating...</>
+                      ) : (
+                        <><UserPlus className="h-4 w-4" /> Add Member</>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Credentials Dialog */}
+          <Dialog open={!!createdCredentials} onOpenChange={(open) => { if (!open) setCreatedCredentials(null); }}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Team Member Created</DialogTitle>
+                <DialogDescription>
+                  Share these login credentials with the new team member. The password cannot be retrieved later.
+                </DialogDescription>
+              </DialogHeader>
+              {createdCredentials && (
+                <div className="space-y-4">
+                  <div className="rounded-md bg-muted p-4 font-mono text-sm space-y-1">
+                    <p><span className="text-muted-foreground">Email:</span> {createdCredentials.email}</p>
+                    <p><span className="text-muted-foreground">Password:</span> {createdCredentials.password}</p>
+                  </div>
+                  <Button variant="outline" className="w-full gap-2" onClick={copyCredentials}>
+                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    {copied ? "Copied!" : "Copy Credentials"}
+                  </Button>
                 </div>
-                <div className="bg-muted/50 p-3 rounded-lg text-sm text-muted-foreground">
-                  <p>The invited member will need to sign up at <strong>{window.location.origin}/auth</strong>.</p>
-                  <p className="mt-1">After they sign up, you can assign their role from this page.</p>
-                </div>
-                <Button
-                  className="w-full gap-2"
-                  onClick={() => {
-                    if (!inviteEmail) { toast.error("Email is required"); return; }
-                    navigator.clipboard.writeText(`${window.location.origin}/auth`);
-                    toast.success(`Signup link copied! Share it with ${inviteEmail}. Assign their role after they join.`);
-                    setInviteDialogOpen(false);
-                    setInviteEmail("");
-                  }}
-                >
-                  <Mail className="h-4 w-4" /> Copy Invite Link
-                </Button>
-              </div>
+              )}
             </DialogContent>
           </Dialog>
 

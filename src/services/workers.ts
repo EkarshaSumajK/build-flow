@@ -14,7 +14,7 @@ export async function fetchWorkers(orgId: string) {
 export async function createWorker(orgId: string, payload: Partial<Worker>) {
   const { data, error } = await supabase
     .from("workers")
-    .insert({ ...payload, organization_id: orgId })
+    .insert([{ ...payload, organization_id: orgId } as any])
     .select()
     .single();
   if (error) throw error;
@@ -22,7 +22,7 @@ export async function createWorker(orgId: string, payload: Partial<Worker>) {
 }
 
 export async function updateWorker(id: string, payload: Partial<Worker>) {
-  const { error } = await supabase.from("workers").update(payload).eq("id", id);
+  const { error } = await supabase.from("workers").update(payload as any).eq("id", id);
   if (error) throw error;
 }
 

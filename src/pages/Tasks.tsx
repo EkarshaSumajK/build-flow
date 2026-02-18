@@ -51,7 +51,7 @@ export default function Tasks() {
         .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 
       if (projectFilter !== "all") query = query.eq("project_id", projectFilter);
-      if (statusFilter !== "all") query = query.eq("status", statusFilter);
+      if (statusFilter !== "all") query = query.eq("status", statusFilter as any);
       if (assigneeFilter !== "all") query = query.eq("assignee_id", assigneeFilter);
 
       const { data, error, count } = await query;
