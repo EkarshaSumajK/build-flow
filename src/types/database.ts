@@ -35,7 +35,6 @@ export type PhotoProgress = Tables["photo_progress"]["Row"];
 export type AttendanceStatus = Database["public"]["Enums"]["attendance_status"];
 export type IssueSeverity = Database["public"]["Enums"]["issue_severity"];
 export type IssueStatus = Database["public"]["Enums"]["issue_status"];
-export type PaymentMode = Database["public"]["Enums"]["payment_mode"];
 export type ProjectStatus = Database["public"]["Enums"]["project_status"];
 export type TaskPriority = Database["public"]["Enums"]["task_priority"];
 export type TaskStatus = Database["public"]["Enums"]["task_status"];
