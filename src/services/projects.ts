@@ -14,7 +14,7 @@ export async function fetchProjects(orgId: string) {
 export async function fetchProject(id: string) {
   const { data, error } = await supabase
     .from("projects")
-    .select("*, profiles(full_name)")
+    .select("*")
     .eq("id", id)
     .single();
   if (error) throw error;
@@ -24,7 +24,7 @@ export async function fetchProject(id: string) {
 export async function createProject(orgId: string, userId: string, payload: Partial<Project>) {
   const { data, error } = await supabase
     .from("projects")
-    .insert({ ...payload, organization_id: orgId, created_by: userId })
+    .insert([{ ...payload, organization_id: orgId, created_by: userId } as any])
     .select()
     .single();
   if (error) throw error;
@@ -32,7 +32,7 @@ export async function createProject(orgId: string, userId: string, payload: Part
 }
 
 export async function updateProject(id: string, payload: Partial<Project>) {
-  const { error } = await supabase.from("projects").update(payload).eq("id", id);
+  const { error } = await supabase.from("projects").update(payload as any).eq("id", id);
   if (error) throw error;
 }
 

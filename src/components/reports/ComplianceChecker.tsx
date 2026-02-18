@@ -48,7 +48,7 @@ export function ComplianceChecker() {
 
   const { data: checklists = [] } = useQuery({
     queryKey: ["compliance-checklists", orgId],
-    queryFn: async () => { const { data, error } = await supabase.from("checklists").select("*").eq("organization_id", orgId!); if (error) throw error; return data; },
+    queryFn: async () => { const { data, error } = await supabase.from("inspections").select("*").eq("organization_id", orgId!); if (error) throw error; return data; },
     enabled: !!orgId,
   });
 

@@ -133,7 +133,7 @@ export default function Checklists() {
     queryFn: async () => {
       const { data, error } = await supabase.from("checklist_templates").select("*").eq("organization_id", orgId!).order("created_at", { ascending: false });
       if (error) throw error;
-      return (data || []) as Template[];
+      return (data || []) as unknown as Template[];
     },
     enabled: !!orgId,
   });
@@ -143,7 +143,7 @@ export default function Checklists() {
     queryFn: async () => {
       const { data, error } = await supabase.from("inspections").select("*, projects(name)").eq("organization_id", orgId!).order("created_at", { ascending: false });
       if (error) throw error;
-      return (data || []) as Inspection[];
+      return (data || []) as unknown as Inspection[];
     },
     enabled: !!orgId,
   });
@@ -179,7 +179,7 @@ export default function Checklists() {
         organization_id: orgId!, project_id: inspectionForm.project_id,
         template_id: inspectionForm.template_id || null,
         title: inspectionForm.title, category: inspectionForm.category,
-        inspector_id: user!.id, results, notes: inspectionForm.notes || null,
+        inspector_id: user!.id, results: results as any, notes: inspectionForm.notes || null,
         overall_result: "pending", status: "pending",
       });
       if (error) throw error;
@@ -196,7 +196,7 @@ export default function Checklists() {
   const updateResultMutation = useMutation({
     mutationFn: async ({ id, results, overall }: { id: string; results: ChecklistItem[]; overall: string }) => {
       const status = overall === "pending" ? "pending" : "completed";
-      const { error } = await supabase.from("inspections").update({ results, overall_result: overall, status }).eq("id", id);
+      const { error } = await supabase.from("inspections").update({ results: results as any, overall_result: overall, status }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["inspections"] }),
