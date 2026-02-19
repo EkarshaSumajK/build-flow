@@ -143,9 +143,9 @@ export default function Projects() {
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>{editingProject ? "Edit Project" : "Create New Project"}</DialogTitle></DialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); saveProject.mutate(); }} className="space-y-4">
-            {accessibleOrgs.length > 1 && (
-              <div className="space-y-2">
-                <Label>Organization</Label>
+            <div className="space-y-2">
+              <Label>Organization</Label>
+              {accessibleOrgs.length > 1 ? (
                 <Select value={form.organization_id} onValueChange={(v) => setForm({ ...form, organization_id: v })}>
                   <SelectTrigger><SelectValue placeholder="Select organization" /></SelectTrigger>
                   <SelectContent>
@@ -160,8 +160,13 @@ export default function Projects() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-            )}
+              ) : (
+                <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground">
+                  <Building2 className="h-3.5 w-3.5" />
+                  {accessibleOrgs[0]?.name || "Your Organization"}
+                </div>
+              )}
+            </div>
             <div className="space-y-2">
               <Label>Project Name *</Label>
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
