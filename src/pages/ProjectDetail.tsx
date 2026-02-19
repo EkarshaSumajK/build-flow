@@ -47,7 +47,7 @@ function TabLoader() {
 }
 
 export default function ProjectDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { projectCode } = useParams<{ projectCode: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: orgId } = useOrganization();
@@ -66,15 +66,23 @@ export default function ProjectDetail() {
   const emptyTaskForm = { title: "", description: "", priority: "medium", status: "not_started", start_date: "", due_date: "", assignee_id: "" };
   const [taskForm, setTaskForm] = useState(emptyTaskForm);
 
+  // Look up project by project_code (or fall back to UUID for old links)
   const { data: project, isLoading } = useQuery({
-    queryKey: ["project", id],
+    queryKey: ["project", projectCode],
     queryFn: async () => {
-      const { data, error } = await supabase.from("projects").select("*").eq("id", id!).maybeSingle();
+      // Try by project_code first
+      let { data, error } = await supabase.from("projects").select("*").eq("project_code", projectCode!).maybeSingle();
+      if (!data && !error) {
+        // Fall back to UUID lookup for backward compatibility
+        ({ data, error } = await supabase.from("projects").select("*").eq("id", projectCode!).maybeSingle());
+      }
       if (error) throw error;
       return data;
     },
-    enabled: !!id,
+    enabled: !!projectCode,
   });
+
+  const id = project?.id;
 
   const { data: tasks = [] } = useQuery({
     queryKey: ["tasks", id],
