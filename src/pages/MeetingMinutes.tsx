@@ -27,30 +27,29 @@ export default function MeetingMinutes({ projectId }: { projectId?: string }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
 
-  const emptyForm = { project_id: "", title: "", meeting_date: new Date().toISOString().split("T")[0], location: "", agenda: "", notes: "", attendees: "" as string, action_items_text: "" };
+  const emptyForm = { project_id: projectId || "", title: "", meeting_date: new Date().toISOString().split("T")[0], location: "", agenda: "", notes: "", attendees: "" as string, action_items_text: "" };
   const [form, setForm] = useState(emptyForm);
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", orgId],
     queryFn: async () => {
       const { data, error } = await supabase.from("projects").select("id, name").eq("organization_id", orgId!);
-      if (error) throw error;
-      return data;
+      if (error) throw error; return data;
     },
-    enabled: !!orgId,
+    enabled: !!orgId && !projectId,
   });
 
   const { data: meetings = [], isLoading } = useQuery({
-    queryKey: ["meeting-minutes", orgId],
+    queryKey: ["meeting-minutes", orgId, projectId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("meeting_minutes").select("*, projects(name)").eq("organization_id", orgId!).order("meeting_date", { ascending: false });
-      if (error) throw error;
-      return data;
+      let q = supabase.from("meeting_minutes").select("*, projects(name)").eq("organization_id", orgId!).order("meeting_date", { ascending: false });
+      if (projectId) q = q.eq("project_id", projectId);
+      const { data, error } = await q;
+      if (error) throw error; return data;
     },
     enabled: !!orgId,
   });
 
-  // Pagination
   const totalPages = Math.ceil(meetings.length / pageSize);
   const paginatedMeetings = meetings.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
@@ -59,23 +58,17 @@ export default function MeetingMinutes({ projectId }: { projectId?: string }) {
       const attendeeList = form.attendees.split(",").map((a) => a.trim()).filter(Boolean);
       const actionItems = form.action_items_text.split("\n").filter(Boolean).map((item) => ({ text: item.trim(), completed: false }));
       const { error } = await supabase.from("meeting_minutes").insert({
-        organization_id: orgId!,
-        project_id: form.project_id,
-        title: form.title,
-        meeting_date: form.meeting_date,
-        location: form.location || null,
-        agenda: form.agenda || null,
-        notes: form.notes || null,
-        attendees: attendeeList,
-        action_items: actionItems,
-        created_by: user!.id,
+        organization_id: orgId!, project_id: projectId || form.project_id,
+        title: form.title, meeting_date: form.meeting_date,
+        location: form.location || null, agenda: form.agenda || null,
+        notes: form.notes || null, attendees: attendeeList,
+        action_items: actionItems, created_by: user!.id,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["meeting-minutes"] });
-      setDialogOpen(false);
-      setForm(emptyForm);
+      setDialogOpen(false); setForm(emptyForm);
       toast.success("Meeting recorded!");
     },
     onError: (e) => toast.error(e.message),
@@ -84,10 +77,7 @@ export default function MeetingMinutes({ projectId }: { projectId?: string }) {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Meeting Minutes</h1>
-          <p className="text-muted-foreground">Record meetings, agendas, and action items</p>
-        </div>
+        <div><h1 className="text-2xl font-bold">Meeting Minutes</h1><p className="text-muted-foreground">Record meetings, agendas, and action items</p></div>
         <Button onClick={() => setDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />New Meeting</Button>
       </div>
 
@@ -97,13 +87,15 @@ export default function MeetingMinutes({ projectId }: { projectId?: string }) {
           <form onSubmit={(e) => { e.preventDefault(); saveMeeting.mutate(); }} className="space-y-4">
             <div className="space-y-2"><Label>Title *</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Project *</Label>
-                <Select value={form.project_id} onValueChange={(v) => setForm({ ...form, project_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>{projects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
+              {!projectId && (
+                <div className="space-y-2">
+                  <Label>Project *</Label>
+                  <Select value={form.project_id} onValueChange={(v) => setForm({ ...form, project_id: v })}>
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>{projects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-2"><Label>Date</Label><Input type="date" value={form.meeting_date} onChange={(e) => setForm({ ...form, meeting_date: e.target.value })} /></div>
             </div>
             <div className="space-y-2"><Label>Location</Label><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></div>
@@ -168,15 +160,7 @@ export default function MeetingMinutes({ projectId }: { projectId?: string }) {
           </div>
           {meetings.length > 0 && (
             <Card className="mt-4">
-              <TablePagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                totalItems={meetings.length}
-                pageSize={pageSize}
-                onPageChange={setCurrentPage}
-                onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
-                pageSizeOptions={[12, 24, 48, 96]}
-              />
+              <TablePagination currentPage={currentPage} totalPages={totalPages} totalItems={meetings.length} pageSize={pageSize} onPageChange={setCurrentPage} onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }} pageSizeOptions={[12, 24, 48, 96]} />
             </Card>
           )}
         </>

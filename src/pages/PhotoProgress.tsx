@@ -22,13 +22,12 @@ export default function PhotoProgress({ projectId }: { projectId?: string }) {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [locationFilter, setLocationFilter] = useState("all");
-  const [projectFilter, setProjectFilter] = useState("all");
   const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [form, setForm] = useState({ project_id: "", location: "", description: "" });
+  const [form, setForm] = useState({ project_id: projectId || "", location: "", description: "" });
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
@@ -36,20 +35,18 @@ export default function PhotoProgress({ projectId }: { projectId?: string }) {
     queryKey: ["projects", orgId],
     queryFn: async () => {
       const { data, error } = await supabase.from("projects").select("id, name").eq("organization_id", orgId!);
-      if (error) throw error;
-      return data;
+      if (error) throw error; return data;
     },
-    enabled: !!orgId,
+    enabled: !!orgId && !projectId,
   });
 
   const { data: photos = [], isLoading } = useQuery({
-    queryKey: ["photo-progress", orgId, projectFilter],
+    queryKey: ["photo-progress", orgId, projectId],
     queryFn: async () => {
       let query = supabase.from("photo_progress").select("*, projects(name)").eq("organization_id", orgId!).order("taken_at", { ascending: false });
-      if (projectFilter !== "all") query = query.eq("project_id", projectFilter);
+      if (projectId) query = query.eq("project_id", projectId);
       const { data, error } = await query;
-      if (error) throw error;
-      return data;
+      if (error) throw error; return data;
     },
     enabled: !!orgId,
   });
@@ -59,28 +56,24 @@ export default function PhotoProgress({ projectId }: { projectId?: string }) {
   const savePhoto = useMutation({
     mutationFn: async () => {
       if (!file) throw new Error("Please select a photo");
+      const pid = projectId || form.project_id;
       const ext = file.name.split(".").pop();
-      const path = `${form.project_id}/${Date.now()}.${ext}`;
+      const path = `${pid}/${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage.from("photo-progress").upload(path, file);
       if (upErr) throw upErr;
       const { data: urlData } = supabase.storage.from("photo-progress").getPublicUrl(path);
-
       const { error } = await supabase.from("photo_progress").insert({
-        organization_id: orgId!,
-        project_id: form.project_id,
-        location: form.location,
-        description: form.description || null,
-        photo_url: urlData.publicUrl,
-        taken_by: user!.id,
+        organization_id: orgId!, project_id: pid,
+        location: form.location, description: form.description || null,
+        photo_url: urlData.publicUrl, taken_by: user!.id,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["photo-progress"] });
       setDialogOpen(false);
-      setForm({ project_id: "", location: "", description: "" });
-      setFile(null);
-      setPreview(null);
+      setForm({ project_id: projectId || "", location: "", description: "" });
+      setFile(null); setPreview(null);
       toast.success("Photo uploaded!");
     },
     onError: (e) => toast.error(e.message),
@@ -88,35 +81,17 @@ export default function PhotoProgress({ projectId }: { projectId?: string }) {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
-    if (f) {
-      setFile(f);
-      setPreview(URL.createObjectURL(f));
-    }
+    if (f) { setFile(f); setPreview(URL.createObjectURL(f)); }
   };
 
   const filtered = photos.filter((p: any) => locationFilter === "all" || p.location === locationFilter);
-
-  // Pagination
   const totalPages = Math.ceil(filtered.length / pageSize);
   const paginatedPhotos = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-
-  const handleProjectFilterChange = (value: string) => {
-    setProjectFilter(value);
-    setCurrentPage(1);
-  };
-
-  const handleLocationFilterChange = (value: string) => {
-    setLocationFilter(value);
-    setCurrentPage(1);
-  };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Photo Progress</h1>
-          <p className="text-muted-foreground">Track site progress with photos over time</p>
-        </div>
+        <div><h1 className="text-2xl font-bold">Photo Progress</h1><p className="text-muted-foreground">Track site progress with photos over time</p></div>
         <Button onClick={() => setDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Add Photo</Button>
       </div>
 
@@ -124,32 +99,24 @@ export default function PhotoProgress({ projectId }: { projectId?: string }) {
         <DialogContent>
           <DialogHeader><DialogTitle>Upload Progress Photo</DialogTitle></DialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); savePhoto.mutate(); }} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Project *</Label>
-              <Select value={form.project_id} onValueChange={(v) => setForm({ ...form, project_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
-                <SelectContent>{projects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Location / Area *</Label>
-              <Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="e.g. Floor 3 - East Wing" required />
-            </div>
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-            </div>
+            {!projectId && (
+              <div className="space-y-2">
+                <Label>Project *</Label>
+                <Select value={form.project_id} onValueChange={(v) => setForm({ ...form, project_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
+                  <SelectContent>{projects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="space-y-2"><Label>Location / Area *</Label><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="e.g. Floor 3 - East Wing" required /></div>
+            <div className="space-y-2"><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
             <div className="space-y-2">
               <Label>Photo *</Label>
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-              <Button type="button" variant="outline" onClick={() => fileRef.current?.click()}>
-                <Camera className="mr-2 h-4 w-4" />{file ? file.name : "Choose Photo"}
-              </Button>
+              <Button type="button" variant="outline" onClick={() => fileRef.current?.click()}><Camera className="mr-2 h-4 w-4" />{file ? file.name : "Choose Photo"}</Button>
               {preview && <img src={preview} alt="preview" className="h-32 w-auto rounded-md border object-cover mt-2" />}
             </div>
-            <Button type="submit" className="w-full" disabled={savePhoto.isPending || !file}>
-              {savePhoto.isPending ? "Uploading..." : "Upload Photo"}
-            </Button>
+            <Button type="submit" className="w-full" disabled={savePhoto.isPending || !file}>{savePhoto.isPending ? "Uploading..." : "Upload Photo"}</Button>
           </form>
         </DialogContent>
       </Dialog>
@@ -170,14 +137,7 @@ export default function PhotoProgress({ projectId }: { projectId?: string }) {
       </Dialog>
 
       <div className="flex flex-wrap gap-2">
-        <Select value={projectFilter} onValueChange={handleProjectFilterChange}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Projects" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Projects</SelectItem>
-            {projects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={locationFilter} onValueChange={handleLocationFilterChange}>
+        <Select value={locationFilter} onValueChange={(v) => { setLocationFilter(v); setCurrentPage(1); }}>
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Locations" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Locations</SelectItem>
@@ -205,15 +165,7 @@ export default function PhotoProgress({ projectId }: { projectId?: string }) {
           </div>
           {filtered.length > 0 && (
             <Card className="mt-4">
-              <TablePagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                totalItems={filtered.length}
-                pageSize={pageSize}
-                onPageChange={setCurrentPage}
-                onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
-                pageSizeOptions={[12, 24, 48, 96]}
-              />
+              <TablePagination currentPage={currentPage} totalPages={totalPages} totalItems={filtered.length} pageSize={pageSize} onPageChange={setCurrentPage} onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }} pageSizeOptions={[12, 24, 48, 96]} />
             </Card>
           )}
         </>

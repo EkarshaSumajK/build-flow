@@ -32,7 +32,7 @@ export default function Labour({ projectId }: { projectId?: string }) {
   const [editingWorker, setEditingWorker] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split("T")[0]);
-  const [selectedProject, setSelectedProject] = useState<string>("");
+  const [selectedProject, setSelectedProject] = useState<string>(projectId || "");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [attendancePage, setAttendancePage] = useState(1);

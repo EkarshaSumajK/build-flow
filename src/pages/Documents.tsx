@@ -60,10 +60,11 @@ export default function Documents({ projectId }: { projectId?: string }) {
   });
 
   const { data: documents = [], isLoading } = useQuery({
-    queryKey: ["documents", orgId, selectedProject, selectedFolder],
+    queryKey: ["documents", orgId, projectId || selectedProject, selectedFolder],
     queryFn: async () => {
       let q = supabase.from("documents").select("*, projects(name)").eq("organization_id", orgId!).order("created_at", { ascending: false });
-      if (selectedProject !== "all") q = q.eq("project_id", selectedProject);
+      if (projectId) q = q.eq("project_id", projectId);
+      else if (selectedProject !== "all") q = q.eq("project_id", selectedProject);
       if (selectedFolder !== "all") q = q.eq("folder", selectedFolder);
       const { data, error } = await q; if (error) throw error; return data;
     },
