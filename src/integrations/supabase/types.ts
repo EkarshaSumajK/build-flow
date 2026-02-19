@@ -1328,6 +1328,52 @@ export type Database = {
           },
         ]
       }
+      project_workers: {
+        Row: {
+          assigned_at: string
+          id: string
+          organization_id: string
+          project_id: string
+          worker_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          id?: string
+          organization_id: string
+          project_id: string
+          worker_id: string
+        }
+        Update: {
+          assigned_at?: string
+          id?: string
+          organization_id?: string
+          project_id?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_workers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_workers_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_workers_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           budget: number | null

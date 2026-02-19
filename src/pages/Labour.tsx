@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { toast } from "sonner";
-import { Plus, Search, Calendar, Pencil, Trash2, AlertCircle } from "lucide-react";
+import { Plus, Search, Calendar, Pencil, Trash2, AlertCircle, UserPlus, UserMinus } from "lucide-react";
 import { formatCurrency, formatDate, statusColor } from "@/lib/formatters";
 import { AttendanceCalendar } from "@/components/labour/AttendanceCalendar";
 import { WorkerTaskAssignment } from "@/components/labour/WorkerTaskAssignment";
@@ -69,6 +69,46 @@ export default function Labour({ projectId }: { projectId?: string }) {
       if (error) throw error; return data;
     },
     enabled: !!orgId,
+  });
+
+  // Fetch workers assigned to the selected project
+  const { data: projectWorkerIds = [] } = useQuery({
+    queryKey: ["project_workers", selectedProject || projectId],
+    queryFn: async () => {
+      const pid = selectedProject || projectId;
+      const { data, error } = await supabase.from("project_workers").select("worker_id").eq("project_id", pid!);
+      if (error) throw error;
+      return data.map((pw: any) => pw.worker_id as string);
+    },
+    enabled: !!(selectedProject || projectId),
+  });
+
+  const assignWorker = useMutation({
+    mutationFn: async (workerId: string) => {
+      const pid = selectedProject || projectId;
+      if (!pid) throw new Error("No project selected");
+      const { error } = await supabase.from("project_workers").insert({ project_id: pid, worker_id: workerId, organization_id: orgId! });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["project_workers"] });
+      toast.success("Worker assigned to project!");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const unassignWorker = useMutation({
+    mutationFn: async (workerId: string) => {
+      const pid = selectedProject || projectId;
+      if (!pid) throw new Error("No project selected");
+      const { error } = await supabase.from("project_workers").delete().eq("project_id", pid).eq("worker_id", workerId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["project_workers"] });
+      toast.success("Worker removed from project!");
+    },
+    onError: (e) => toast.error(e.message),
   });
 
   const saveWorker = useMutation({
@@ -151,8 +191,8 @@ export default function Labour({ projectId }: { projectId?: string }) {
   const totalPages = Math.ceil(filteredWorkers.length / pageSize);
   const paginatedWorkers = filteredWorkers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  // Pagination for attendance tab
-  const activeWorkers = workers.filter((w: any) => w.is_active);
+  // Pagination for attendance tab — show only project-assigned active workers
+  const activeWorkers = workers.filter((w: any) => w.is_active && (!(selectedProject || projectId) || projectWorkerIds.includes(w.id)));
   const attendanceTotalPages = Math.ceil(activeWorkers.length / attendancePageSize);
   const paginatedAttendanceWorkers = activeWorkers.slice((attendancePage - 1) * attendancePageSize, attendancePage * attendancePageSize);
 
@@ -293,29 +333,47 @@ export default function Labour({ projectId }: { projectId?: string }) {
             <Card className="min-w-[600px] sm:min-w-0">
               <Table>
                 <TableHeader>
-                  <TableRow><TableHead>Name</TableHead><TableHead>Trade</TableHead><TableHead>Daily Rate</TableHead><TableHead className="hidden sm:table-cell">Contractor</TableHead><TableHead className="hidden sm:table-cell">Phone</TableHead><TableHead>Status</TableHead><TableHead>Actions</TableHead></TableRow>
+                  <TableRow><TableHead>Name</TableHead><TableHead>Trade</TableHead><TableHead>Daily Rate</TableHead><TableHead className="hidden sm:table-cell">Contractor</TableHead><TableHead className="hidden sm:table-cell">Phone</TableHead><TableHead>Status</TableHead>{(selectedProject || projectId) && <TableHead>Project</TableHead>}<TableHead>Actions</TableHead></TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedWorkers.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No workers found</TableCell></TableRow>
-                  ) : paginatedWorkers.map((w: any) => (
+                     <TableRow><TableCell colSpan={(selectedProject || projectId) ? 8 : 7} className="text-center text-muted-foreground py-8">No workers found</TableCell></TableRow>
+                   ) : paginatedWorkers.map((w: any) => {
+                     const isAssigned = projectWorkerIds.includes(w.id);
+                     return (
                     <TableRow key={w.id}>
                       <TableCell className="font-medium">{w.name}</TableCell>
                       <TableCell>{w.trade || "—"}</TableCell>
                       <TableCell>{formatCurrency(w.daily_rate)}</TableCell>
                       <TableCell className="hidden sm:table-cell">{w.contractor || "—"}</TableCell>
                       <TableCell className="hidden sm:table-cell">{w.phone || "—"}</TableCell>
-                      <TableCell><Badge className={w.is_active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"} variant="secondary">{w.is_active ? "Active" : "Inactive"}</Badge></TableCell>
-                      <TableCell>
-                      {can("workers:manage") ? (
-                        <div className="flex gap-1">
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(w)}><Pencil className="h-3.5 w-3.5" /></Button>
-                          {w.is_active && <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget(w)}><Trash2 className="h-3.5 w-3.5" /></Button>}
-                        </div>
-                      ) : <span className="text-xs text-muted-foreground">—</span>}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                       <TableCell><Badge className={w.is_active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"} variant="secondary">{w.is_active ? "Active" : "Inactive"}</Badge></TableCell>
+                       {(selectedProject || projectId) && (
+                         <TableCell>
+                           {can("workers:manage") && w.is_active ? (
+                             isAssigned ? (
+                               <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => unassignWorker.mutate(w.id)} disabled={unassignWorker.isPending}>
+                                 <UserMinus className="mr-1 h-3 w-3" />Unassign
+                               </Button>
+                             ) : (
+                               <Button size="sm" variant="default" className="h-7 text-xs" onClick={() => assignWorker.mutate(w.id)} disabled={assignWorker.isPending}>
+                                 <UserPlus className="mr-1 h-3 w-3" />Assign
+                               </Button>
+                             )
+                           ) : <span className="text-xs text-muted-foreground">{isAssigned ? "Assigned" : "—"}</span>}
+                         </TableCell>
+                       )}
+                       <TableCell>
+                       {can("workers:manage") ? (
+                         <div className="flex gap-1">
+                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(w)}><Pencil className="h-3.5 w-3.5" /></Button>
+                           {w.is_active && <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget(w)}><Trash2 className="h-3.5 w-3.5" /></Button>}
+                         </div>
+                       ) : <span className="text-xs text-muted-foreground">—</span>}
+                       </TableCell>
+                     </TableRow>
+                   );
+                   })}
                 </TableBody>
               </Table>
               {filteredWorkers.length > 0 && (
