@@ -20,7 +20,7 @@ import { TablePagination } from "@/components/shared/TablePagination";
 
 type LineItem = { description: string; unit: string; quantity: number; rate: number; previous_quantity: number; current_quantity: number };
 
-export default function Billing() {
+export default function Billing({ projectId }: { projectId?: string }) {
   const { data: orgId } = useOrganization();
   const { user } = useAuth();
   const qc = useQueryClient();

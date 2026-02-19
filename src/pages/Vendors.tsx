@@ -21,7 +21,7 @@ const CATEGORIES = ["General", "Material Supplier", "Subcontractor", "Equipment"
 
 const emptyForm = { name: "", contact_person: "", phone: "", email: "", address: "", gst_number: "", pan_number: "", category: "General", notes: "" };
 
-export default function Vendors() {
+export default function Vendors({ projectId }: { projectId?: string }) {
   const { data: orgId } = useOrganization();
   const { can } = useRole();
   const qc = useQueryClient();

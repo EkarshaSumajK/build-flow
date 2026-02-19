@@ -19,7 +19,7 @@ import { Plus, ShieldAlert, MessageSquare } from "lucide-react";
 import { formatDate, statusColor, priorityColor } from "@/lib/formatters";
 import { TablePagination } from "@/components/shared/TablePagination";
 
-export default function Safety() {
+export default function Safety({ projectId }: { projectId?: string }) {
   const { user } = useAuth();
   const { data: orgId } = useOrganization();
   const { data: members = [] } = useOrgMembers();

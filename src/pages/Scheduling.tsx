@@ -35,7 +35,7 @@ const shiftColor = (shift: string) => {
   return colors[shift] || "bg-muted text-muted-foreground";
 };
 
-export default function Scheduling() {
+export default function Scheduling({ projectId }: { projectId?: string }) {
   const { data: orgId } = useOrganization();
   const { user } = useAuth();
   const qc = useQueryClient();

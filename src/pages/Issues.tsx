@@ -24,7 +24,7 @@ import { TablePagination } from "@/components/shared/TablePagination";
 
 const DEFAULT_PAGE_SIZE = 10;
 
-export default function Issues() {
+export default function Issues({ projectId }: { projectId?: string }) {
   const { user } = useAuth();
   const { data: orgId } = useOrganization();
   const { data: members = [] } = useOrgMembers();

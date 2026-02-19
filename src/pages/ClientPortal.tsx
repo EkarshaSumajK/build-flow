@@ -25,7 +25,7 @@ const PERMISSION_OPTIONS = [
   { id: "schedule", label: "Schedule" },
 ];
 
-export default function ClientPortal() {
+export default function ClientPortal({ projectId }: { projectId?: string }) {
   const { user } = useAuth();
   const { data: orgId } = useOrganization();
   const queryClient = useQueryClient();

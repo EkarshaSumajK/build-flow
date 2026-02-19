@@ -17,7 +17,7 @@ import { Plus, ArrowRight } from "lucide-react";
 import { formatDate, statusColor } from "@/lib/formatters";
 import { TablePagination } from "@/components/shared/TablePagination";
 
-export default function InventoryTransfers() {
+export default function InventoryTransfers({ projectId }: { projectId?: string }) {
   const { user } = useAuth();
   const { data: orgId } = useOrganization();
   const queryClient = useQueryClient();

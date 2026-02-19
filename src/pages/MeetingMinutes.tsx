@@ -17,7 +17,7 @@ import { Plus, Calendar, MapPin, Users, CheckCircle2 } from "lucide-react";
 import { formatDate } from "@/lib/formatters";
 import { TablePagination } from "@/components/shared/TablePagination";
 
-export default function MeetingMinutes() {
+export default function MeetingMinutes({ projectId }: { projectId?: string }) {
   const { user } = useAuth();
   const { data: orgId } = useOrganization();
   const { data: members = [] } = useOrgMembers();

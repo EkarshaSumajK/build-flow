@@ -30,7 +30,7 @@ const WIDGETS = [
   { id: "project_progress", label: "Project Progress", icon: BarChart3, category: "Projects" },
 ];
 
-export default function ReportBuilder() {
+export default function ReportBuilder({ projectId }: { projectId?: string }) {
   const { data: orgId } = useOrganization();
   const { user } = useAuth();
   const qc = useQueryClient();
