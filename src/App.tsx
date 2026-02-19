@@ -92,7 +92,7 @@ const App = () => (
               <Route path="/auth" element={<AuthRoute />} />
               <Route path="/" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Dashboard /></Suspense></ProtectedRoute>} />
               <Route path="/projects" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Projects /></Suspense></ProtectedRoute>} />
-              <Route path="/projects/:id" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ProjectDetail /></Suspense></ProtectedRoute>} />
+              <Route path="/projects/:projectCode" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ProjectDetail /></Suspense></ProtectedRoute>} />
               <Route path="/tasks" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Tasks /></Suspense></ProtectedRoute>} />
               <Route path="/materials" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Materials /></Suspense></ProtectedRoute>} />
               <Route path="/labour" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Labour /></Suspense></ProtectedRoute>} />

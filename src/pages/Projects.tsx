@@ -259,7 +259,7 @@ export default function Projects() {
         <div className="space-y-4">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {paginated.map((project: any) => (
-            <Card key={project.id} className="cursor-pointer hover:shadow-md transition-shadow group" onClick={() => navigate(`/projects/${project.id}`)}>
+            <Card key={project.id} className="cursor-pointer hover:shadow-md transition-shadow group" onClick={() => navigate(`/projects/${project.project_code || project.id}`)}>
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <CardTitle className="text-lg line-clamp-1">{project.name}</CardTitle>
