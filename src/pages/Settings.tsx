@@ -363,8 +363,6 @@ export default function Settings() {
                     const memberRole = getRoleForUser(member.user_id);
                     const isCurrentUser = member.user_id === user?.id;
                     const isMemberOwner = memberRole === "owner";
-                    const demoEmail = `${member.full_name?.toLowerCase().replace(/\s+/g, ".")}@demo.com`;
-                    const demoPassword = "Demo@1234";
                     return (
                       <TableRow key={member.user_id}>
                         <TableCell>
@@ -376,10 +374,10 @@ export default function Settings() {
                           </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground font-mono text-xs">
-                          {demoEmail}
+                          {member.email || "—"}
                         </TableCell>
                         <TableCell className="text-muted-foreground font-mono text-xs">
-                          {demoPassword}
+                          {member.temp_password || "—"}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {member.phone || "—"}

@@ -10,7 +10,7 @@ export function useOrgMembers() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("user_id, full_name, phone, avatar_url")
+        .select("user_id, full_name, phone, avatar_url, email, temp_password")
         .eq("organization_id", orgId!);
       if (error) throw error;
       return data;
