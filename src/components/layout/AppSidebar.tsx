@@ -24,7 +24,6 @@ const mainNav = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/" },
   { title: "Projects", icon: FolderKanban, path: "/projects" },
   { title: "Tasks", icon: ClipboardList, path: "/tasks" },
-  { title: "Team Chat", icon: MessageCircle, path: "/chat" },
 ];
 
 export function AppSidebar() {
