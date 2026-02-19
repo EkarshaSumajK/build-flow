@@ -38,6 +38,7 @@ export default function Labour({ projectId }: { projectId?: string }) {
   const [pageSize, setPageSize] = useState(10);
   const [attendancePage, setAttendancePage] = useState(1);
   const [attendancePageSize, setAttendancePageSize] = useState(10);
+  const [mutatingWorkerId, setMutatingWorkerId] = useState<string | null>(null);
 
   const emptyWorkerForm = { name: "", trade: "", daily_rate: "", contractor: "", phone: "" };
   const [workerForm, setWorkerForm] = useState(emptyWorkerForm);
@@ -85,6 +86,7 @@ export default function Labour({ projectId }: { projectId?: string }) {
 
   const assignWorker = useMutation({
     mutationFn: async (workerId: string) => {
+      setMutatingWorkerId(workerId);
       const pid = selectedProject || projectId;
       if (!pid) throw new Error("No project selected");
       const { error } = await supabase.from("project_workers").insert({ project_id: pid, worker_id: workerId, organization_id: orgId! });
@@ -95,10 +97,12 @@ export default function Labour({ projectId }: { projectId?: string }) {
       toast.success("Worker assigned to project!");
     },
     onError: (e) => toast.error(e.message),
+    onSettled: () => setMutatingWorkerId(null),
   });
 
   const unassignWorker = useMutation({
     mutationFn: async (workerId: string) => {
+      setMutatingWorkerId(workerId);
       const pid = selectedProject || projectId;
       if (!pid) throw new Error("No project selected");
       const { error } = await supabase.from("project_workers").delete().eq("project_id", pid).eq("worker_id", workerId);
@@ -109,6 +113,7 @@ export default function Labour({ projectId }: { projectId?: string }) {
       toast.success("Worker removed from project!");
     },
     onError: (e) => toast.error(e.message),
+    onSettled: () => setMutatingWorkerId(null),
   });
 
   const saveWorker = useMutation({
@@ -352,12 +357,12 @@ export default function Labour({ projectId }: { projectId?: string }) {
                          <TableCell>
                            {can("workers:manage") && w.is_active ? (
                              isAssigned ? (
-                               <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => unassignWorker.mutate(w.id)} disabled={unassignWorker.isPending}>
-                                 <UserMinus className="mr-1 h-3 w-3" />Unassign
+                               <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => unassignWorker.mutate(w.id)} disabled={mutatingWorkerId === w.id}>
+                                 <UserMinus className="mr-1 h-3 w-3" />{mutatingWorkerId === w.id ? "..." : "Unassign"}
                                </Button>
                              ) : (
-                               <Button size="sm" variant="default" className="h-7 text-xs" onClick={() => assignWorker.mutate(w.id)} disabled={assignWorker.isPending}>
-                                 <UserPlus className="mr-1 h-3 w-3" />Assign
+                               <Button size="sm" variant="default" className="h-7 text-xs" onClick={() => assignWorker.mutate(w.id)} disabled={mutatingWorkerId === w.id}>
+                                 <UserPlus className="mr-1 h-3 w-3" />{mutatingWorkerId === w.id ? "..." : "Assign"}
                                </Button>
                              )
                            ) : <span className="text-xs text-muted-foreground">{isAssigned ? "Assigned" : "—"}</span>}
