@@ -1073,6 +1073,7 @@ export type Database = {
           id: string
           logo_url: string | null
           name: string
+          parent_organization_id: string | null
           slug: string
           updated_at: string
         }
@@ -1081,6 +1082,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name: string
+          parent_organization_id?: string | null
           slug: string
           updated_at?: string
         }
@@ -1089,10 +1091,19 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name?: string
+          parent_organization_id?: string | null
           slug?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "organizations_parent_organization_id_fkey"
+            columns: ["parent_organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       petty_cash_entries: {
         Row: {
@@ -2163,6 +2174,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_org: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: boolean
+      }
+      get_accessible_org_ids: { Args: { _user_id: string }; Returns: string[] }
       get_user_organization_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
