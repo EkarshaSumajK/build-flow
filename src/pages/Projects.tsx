@@ -219,17 +219,18 @@ export default function Projects() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Search projects..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
         </div>
-        {accessibleOrgs.length > 1 && (
-          <Select value={orgFilter} onValueChange={setOrgFilter}>
-            <SelectTrigger className="w-[200px]"><SelectValue placeholder="All Organizations" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Organizations</SelectItem>
-              {accessibleOrgs.map((org) => (
-                <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+        <Select value={orgFilter} onValueChange={setOrgFilter}>
+          <SelectTrigger className="w-[200px]"><SelectValue placeholder="All Organizations" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Organizations</SelectItem>
+            {accessibleOrgs.map((org) => (
+              <SelectItem key={org.id} value={org.id}>
+                {org.name}
+                {org.parent_organization_id ? " (Sub-org)" : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[160px]"><SelectValue placeholder="All Status" /></SelectTrigger>
           <SelectContent>
