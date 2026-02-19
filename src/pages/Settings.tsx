@@ -351,7 +351,7 @@ export default function Settings() {
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Password</TableHead>
-                    <TableHead>Phone</TableHead>
+                    
                     <TableHead>Role</TableHead>
                     {canManage && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
@@ -378,9 +378,6 @@ export default function Settings() {
                         </TableCell>
                         <TableCell className="text-muted-foreground font-mono text-xs">
                           {member.temp_password || "—"}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {member.phone || "—"}
                         </TableCell>
                         <TableCell>
                           <Badge variant="secondary">{roleLabel(memberRole)}</Badge>
