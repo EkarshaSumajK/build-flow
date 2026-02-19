@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TablePagination } from "@/components/shared/TablePagination";
 import { toast } from "sonner";
 import { Building2, Users, Shield, Save, UserPlus, Trash2, Loader2, Copy, Check, Network } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -40,6 +41,8 @@ export default function Settings() {
   const [removingMember, setRemovingMember] = useState<string | null>(null);
   const [createdCredentials, setCreatedCredentials] = useState<{ email: string; password: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [memberPage, setMemberPage] = useState(1);
+  const memberPageSize = 10;
 
   const { data: org } = useQuery({
     queryKey: ["org-details", orgId],
@@ -346,16 +349,22 @@ export default function Settings() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Password</TableHead>
                     <TableHead>Phone</TableHead>
                     <TableHead>Role</TableHead>
                     {canManage && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {members?.map((member) => {
+                  {members
+                    ?.slice((memberPage - 1) * memberPageSize, memberPage * memberPageSize)
+                    .map((member) => {
                     const memberRole = getRoleForUser(member.user_id);
                     const isCurrentUser = member.user_id === user?.id;
                     const isMemberOwner = memberRole === "owner";
+                    const demoEmail = `${member.full_name?.toLowerCase().replace(/\s+/g, ".")}@demo.com`;
+                    const demoPassword = "Demo@1234";
                     return (
                       <TableRow key={member.user_id}>
                         <TableCell>
@@ -365,6 +374,12 @@ export default function Settings() {
                               <Badge variant="outline" className="text-xs">You</Badge>
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground font-mono text-xs">
+                          {demoEmail}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground font-mono text-xs">
+                          {demoPassword}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {member.phone || "—"}
@@ -412,6 +427,15 @@ export default function Settings() {
                   })}
                 </TableBody>
               </Table>
+              {(members?.length || 0) > memberPageSize && (
+                <TablePagination
+                  currentPage={memberPage}
+                  totalPages={Math.ceil((members?.length || 0) / memberPageSize)}
+                  totalItems={members?.length || 0}
+                  pageSize={memberPageSize}
+                  onPageChange={setMemberPage}
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
