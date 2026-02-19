@@ -16,7 +16,7 @@ import { Plus, Camera, MapPin, Calendar } from "lucide-react";
 import { formatDate } from "@/lib/formatters";
 import { TablePagination } from "@/components/shared/TablePagination";
 
-export default function PhotoProgress() {
+export default function PhotoProgress({ projectId }: { projectId?: string }) {
   const { user } = useAuth();
   const { data: orgId } = useOrganization();
   const queryClient = useQueryClient();

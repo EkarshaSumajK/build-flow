@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,8 +9,7 @@ import { useRole } from "@/hooks/useRole";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -19,8 +18,33 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { CommentsSection } from "@/components/shared/CommentsSection";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, Pencil, UserPlus, X } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Pencil, UserPlus, X, Loader2 } from "lucide-react";
 import { formatCurrency, formatDate, statusColor, priorityColor } from "@/lib/formatters";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+
+// Lazy-loaded module pages
+const Materials = lazy(() => import("./Materials"));
+const InventoryTransfers = lazy(() => import("./InventoryTransfers"));
+const Labour = lazy(() => import("./Labour"));
+const Equipment = lazy(() => import("./Equipment"));
+const Scheduling = lazy(() => import("./Scheduling"));
+const Vendors = lazy(() => import("./Vendors"));
+const Drawings = lazy(() => import("./Drawings"));
+const Documents = lazy(() => import("./Documents"));
+const Checklists = lazy(() => import("./Checklists"));
+const Billing = lazy(() => import("./Billing"));
+const PettyCash = lazy(() => import("./PettyCash"));
+const Issues = lazy(() => import("./Issues"));
+const Safety = lazy(() => import("./Safety"));
+const PhotoProgress = lazy(() => import("./PhotoProgress"));
+const MeetingMinutes = lazy(() => import("./MeetingMinutes"));
+const Reports = lazy(() => import("./Reports"));
+const ReportBuilder = lazy(() => import("./ReportBuilder"));
+const ClientPortal = lazy(() => import("./ClientPortal"));
+
+function TabLoader() {
+  return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+}
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -56,16 +80,6 @@ export default function ProjectDetail() {
     queryKey: ["tasks", id],
     queryFn: async () => {
       const { data, error } = await supabase.from("tasks").select("*").eq("project_id", id!).order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!id,
-  });
-
-  const { data: issues = [] } = useQuery({
-    queryKey: ["project-issues", id],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("issues").select("*").eq("project_id", id!).order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -200,21 +214,36 @@ export default function ProjectDetail() {
         <Card><CardContent className="pt-4"><p className="text-xs sm:text-sm text-muted-foreground">Budget</p><p className="text-lg sm:text-xl font-bold">{formatCurrency(project.budget)}</p></CardContent></Card>
         <Card><CardContent className="pt-4"><p className="text-xs sm:text-sm text-muted-foreground">Spent</p><p className="text-lg sm:text-xl font-bold">{formatCurrency(project.spent)}</p></CardContent></Card>
         <Card><CardContent className="pt-4"><p className="text-xs sm:text-sm text-muted-foreground">Tasks</p><p className="text-lg sm:text-xl font-bold">{tasks.length}</p></CardContent></Card>
-        <Card><CardContent className="pt-4"><p className="text-xs sm:text-sm text-muted-foreground">Open Issues</p><p className="text-lg sm:text-xl font-bold">{issues.filter((i: any) => i.status === "open").length}</p></CardContent></Card>
+        <Card><CardContent className="pt-4"><p className="text-xs sm:text-sm text-muted-foreground">Progress</p><p className="text-lg sm:text-xl font-bold">{project.progress || 0}%</p></CardContent></Card>
       </div>
 
       <Tabs defaultValue="kanban">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <TabsList className="flex-wrap">
+        <ScrollArea className="w-full">
+          <TabsList className="inline-flex w-max">
             <TabsTrigger value="kanban">Kanban</TabsTrigger>
-            <TabsTrigger value="list">Tasks</TabsTrigger>
-            <TabsTrigger value="team">Team ({projectMembers.length})</TabsTrigger>
+            <TabsTrigger value="tasks">Tasks</TabsTrigger>
+            <TabsTrigger value="team">Team</TabsTrigger>
+            <TabsTrigger value="materials">Materials</TabsTrigger>
+            <TabsTrigger value="transfers">Transfers</TabsTrigger>
+            <TabsTrigger value="labour">Labour</TabsTrigger>
+            <TabsTrigger value="equipment">Equipment</TabsTrigger>
+            <TabsTrigger value="scheduling">Scheduling</TabsTrigger>
+            <TabsTrigger value="vendors">Vendors</TabsTrigger>
+            <TabsTrigger value="drawings">Drawings</TabsTrigger>
+            <TabsTrigger value="documents">Documents</TabsTrigger>
+            <TabsTrigger value="checklists">Checklists</TabsTrigger>
+            <TabsTrigger value="billing">Billing</TabsTrigger>
+            <TabsTrigger value="petty-cash">Petty Cash</TabsTrigger>
             <TabsTrigger value="issues">Issues</TabsTrigger>
+            <TabsTrigger value="safety">Safety</TabsTrigger>
+            <TabsTrigger value="photos">Photos</TabsTrigger>
+            <TabsTrigger value="meetings">Meetings</TabsTrigger>
+            <TabsTrigger value="reports">Reports</TabsTrigger>
+            <TabsTrigger value="report-builder">Report Builder</TabsTrigger>
+            <TabsTrigger value="client-portal">Client Portal</TabsTrigger>
           </TabsList>
-          <Button size="sm" onClick={() => { setEditingTask(null); setTaskForm(emptyTaskForm); setTaskDialogOpen(true); }}>
-            <Plus className="mr-2 h-4 w-4" />Add Task
-          </Button>
-        </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
 
         {/* Task create/edit dialog */}
         <Dialog open={taskDialogOpen} onOpenChange={(v) => { setTaskDialogOpen(v); if (!v) setEditingTask(null); }}>
@@ -222,7 +251,7 @@ export default function ProjectDetail() {
             <DialogHeader><DialogTitle>{editingTask ? "Edit Task" : "Create Task"}</DialogTitle></DialogHeader>
             <form onSubmit={(e) => { e.preventDefault(); saveTask.mutate(); }} className="space-y-4">
               <div className="space-y-2"><Label>Title *</Label><Input value={taskForm.title} onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })} required /></div>
-              <div className="space-y-2"><Label>Description</Label><Textarea value={taskForm.description} onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Description</Label><Input value={taskForm.description} onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })} /></div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Priority</Label>
@@ -256,7 +285,6 @@ export default function ProjectDetail() {
 
         <ConfirmDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)} title="Delete Task" description={`Delete "${deleteTarget?.title}"?`} onConfirm={() => deleteTask.mutate(deleteTarget.id)} loading={deleteTask.isPending} />
 
-        {/* Task detail/comments sheet */}
         <Dialog open={!!selectedTask} onOpenChange={(v) => !v && setSelectedTask(null)}>
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>{selectedTask?.title}</DialogTitle></DialogHeader>
@@ -274,7 +302,13 @@ export default function ProjectDetail() {
           </DialogContent>
         </Dialog>
 
+        {/* Kanban Tab */}
         <TabsContent value="kanban" className="mt-4">
+          <div className="flex justify-end mb-3">
+            <Button size="sm" onClick={() => { setEditingTask(null); setTaskForm(emptyTaskForm); setTaskDialogOpen(true); }}>
+              <Plus className="mr-2 h-4 w-4" />Add Task
+            </Button>
+          </div>
           <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
             {(["not_started", "in_progress", "completed", "blocked"] as const).map((status) => (
               <div key={status} className="space-y-3">
@@ -297,7 +331,7 @@ export default function ProjectDetail() {
                           <Badge variant="secondary" className={`text-xs ${priorityColor(task.priority)}`}>{task.priority}</Badge>
                           {task.assignee_id && <span className="text-xs text-muted-foreground">{getMemberName(task.assignee_id)}</span>}
                         </div>
-                        <Select value={task.status} onValueChange={(v) => { updateTaskStatus.mutate({ taskId: task.id, status: v }); }}>
+                        <Select value={task.status} onValueChange={(v) => updateTaskStatus.mutate({ taskId: task.id, status: v })}>
                           <SelectTrigger className="h-7 text-xs" onClick={(e) => e.stopPropagation()}><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="not_started">Not Started</SelectItem><SelectItem value="in_progress">In Progress</SelectItem>
@@ -313,7 +347,13 @@ export default function ProjectDetail() {
           </div>
         </TabsContent>
 
-        <TabsContent value="list" className="mt-4">
+        {/* Tasks List Tab */}
+        <TabsContent value="tasks" className="mt-4">
+          <div className="flex justify-end mb-3">
+            <Button size="sm" onClick={() => { setEditingTask(null); setTaskForm(emptyTaskForm); setTaskDialogOpen(true); }}>
+              <Plus className="mr-2 h-4 w-4" />Add Task
+            </Button>
+          </div>
           <Card>
             <Table>
               <TableHeader>
@@ -353,6 +393,7 @@ export default function ProjectDetail() {
           </Card>
         </TabsContent>
 
+        {/* Team Tab */}
         <TabsContent value="team" className="mt-4 space-y-4">
           <div className="flex justify-end">
             {canManage && (
@@ -415,28 +456,25 @@ export default function ProjectDetail() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="issues" className="mt-4">
-          <Card>
-            <Table>
-              <TableHeader>
-                <TableRow><TableHead>Title</TableHead><TableHead>Category</TableHead><TableHead>Severity</TableHead><TableHead>Status</TableHead><TableHead>Created</TableHead></TableRow>
-              </TableHeader>
-              <TableBody>
-                {issues.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No issues reported</TableCell></TableRow>
-                ) : issues.map((issue: any) => (
-                  <TableRow key={issue.id}>
-                    <TableCell className="font-medium">{issue.title}</TableCell>
-                    <TableCell className="capitalize">{issue.category}</TableCell>
-                    <TableCell><Badge className={priorityColor(issue.severity)} variant="secondary">{issue.severity}</Badge></TableCell>
-                    <TableCell><Badge className={statusColor(issue.status)} variant="secondary">{issue.status.replace("_", " ")}</Badge></TableCell>
-                    <TableCell>{formatDate(issue.created_at)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-        </TabsContent>
+        {/* Module Tabs - each renders the full page scoped to this project */}
+        <TabsContent value="materials" className="mt-4"><Suspense fallback={<TabLoader />}><Materials projectId={id} /></Suspense></TabsContent>
+        <TabsContent value="transfers" className="mt-4"><Suspense fallback={<TabLoader />}><InventoryTransfers projectId={id} /></Suspense></TabsContent>
+        <TabsContent value="labour" className="mt-4"><Suspense fallback={<TabLoader />}><Labour projectId={id} /></Suspense></TabsContent>
+        <TabsContent value="equipment" className="mt-4"><Suspense fallback={<TabLoader />}><Equipment projectId={id} /></Suspense></TabsContent>
+        <TabsContent value="scheduling" className="mt-4"><Suspense fallback={<TabLoader />}><Scheduling projectId={id} /></Suspense></TabsContent>
+        <TabsContent value="vendors" className="mt-4"><Suspense fallback={<TabLoader />}><Vendors projectId={id} /></Suspense></TabsContent>
+        <TabsContent value="drawings" className="mt-4"><Suspense fallback={<TabLoader />}><Drawings projectId={id} /></Suspense></TabsContent>
+        <TabsContent value="documents" className="mt-4"><Suspense fallback={<TabLoader />}><Documents projectId={id} /></Suspense></TabsContent>
+        <TabsContent value="checklists" className="mt-4"><Suspense fallback={<TabLoader />}><Checklists projectId={id} /></Suspense></TabsContent>
+        <TabsContent value="billing" className="mt-4"><Suspense fallback={<TabLoader />}><Billing projectId={id} /></Suspense></TabsContent>
+        <TabsContent value="petty-cash" className="mt-4"><Suspense fallback={<TabLoader />}><PettyCash projectId={id} /></Suspense></TabsContent>
+        <TabsContent value="issues" className="mt-4"><Suspense fallback={<TabLoader />}><Issues projectId={id} /></Suspense></TabsContent>
+        <TabsContent value="safety" className="mt-4"><Suspense fallback={<TabLoader />}><Safety projectId={id} /></Suspense></TabsContent>
+        <TabsContent value="photos" className="mt-4"><Suspense fallback={<TabLoader />}><PhotoProgress projectId={id} /></Suspense></TabsContent>
+        <TabsContent value="meetings" className="mt-4"><Suspense fallback={<TabLoader />}><MeetingMinutes projectId={id} /></Suspense></TabsContent>
+        <TabsContent value="reports" className="mt-4"><Suspense fallback={<TabLoader />}><Reports projectId={id} /></Suspense></TabsContent>
+        <TabsContent value="report-builder" className="mt-4"><Suspense fallback={<TabLoader />}><ReportBuilder projectId={id} /></Suspense></TabsContent>
+        <TabsContent value="client-portal" className="mt-4"><Suspense fallback={<TabLoader />}><ClientPortal projectId={id} /></Suspense></TabsContent>
       </Tabs>
     </div>
   );

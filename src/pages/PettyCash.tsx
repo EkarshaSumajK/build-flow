@@ -36,7 +36,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 const CHART_COLORS = ["hsl(220, 70%, 50%)", "hsl(142, 71%, 45%)", "hsl(38, 92%, 50%)", "hsl(0, 72%, 51%)", "hsl(280, 60%, 50%)", "hsl(180, 60%, 45%)", "hsl(210, 15%, 47%)"];
 
-export default function PettyCash() {
+export default function PettyCash({ projectId }: { projectId?: string }) {
   const { user } = useAuth();
   const { data: orgId } = useOrganization();
   const { can } = useRole();

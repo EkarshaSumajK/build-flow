@@ -22,7 +22,7 @@ import { WorkerTaskAssignment } from "@/components/labour/WorkerTaskAssignment";
 import { PayrollCalculator } from "@/components/labour/PayrollCalculator";
 import { TablePagination } from "@/components/shared/TablePagination";
 
-export default function Labour() {
+export default function Labour({ projectId }: { projectId?: string }) {
   const { user } = useAuth();
   const { data: orgId } = useOrganization();
   const { can } = useRole();

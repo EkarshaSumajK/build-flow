@@ -103,7 +103,7 @@ const getResultColor = (result: string) => {
   return "bg-amber-500/10 text-amber-600 border-amber-200";
 };
 
-export default function Checklists() {
+export default function Checklists({ projectId }: { projectId?: string }) {
   const { data: orgId } = useOrganization();
   const { user } = useAuth();
   const qc = useQueryClient();

@@ -35,7 +35,7 @@ const canPreview = (fileType: string | null, fileName: string | null) => {
   return false;
 };
 
-export default function Documents() {
+export default function Documents({ projectId }: { projectId?: string }) {
   const { data: orgId } = useOrganization();
   const { user } = useAuth();
   const qc = useQueryClient();

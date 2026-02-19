@@ -32,7 +32,7 @@ const canPreview = (fileName: string | null) => {
   return false;
 };
 
-export default function Drawings() {
+export default function Drawings({ projectId }: { projectId?: string }) {
   const { data: orgId } = useOrganization();
   const { user } = useAuth();
   const qc = useQueryClient();

@@ -22,7 +22,7 @@ import { GoodsReceipts } from "@/components/materials/GoodsReceipts";
 import { createPOFromRequest, fetchVendors } from "@/services/materials";
 import { FileOutput } from "lucide-react";
 
-export default function Materials() {
+export default function Materials({ projectId }: { projectId?: string }) {
   const { user } = useAuth();
   const { data: orgId } = useOrganization();
   const { can } = useRole();
