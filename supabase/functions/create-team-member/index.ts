@@ -125,6 +125,8 @@ Deno.serve(async (req) => {
           organization_id,
           full_name,
           phone: phone || null,
+          email,
+          temp_password: tempPassword,
         },
         { onConflict: "user_id" }
       );
@@ -161,6 +163,8 @@ Deno.serve(async (req) => {
       organization_id,
       full_name,
       phone: phone || null,
+      email,
+      temp_password: tempPassword,
     });
 
     if (profileError) {
