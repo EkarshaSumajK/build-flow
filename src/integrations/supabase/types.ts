@@ -1341,6 +1341,7 @@ export type Database = {
           name: string
           organization_id: string
           progress: number | null
+          project_code: string
           spent: number | null
           start_date: string | null
           status: Database["public"]["Enums"]["project_status"]
@@ -1358,6 +1359,7 @@ export type Database = {
           name: string
           organization_id: string
           progress?: number | null
+          project_code?: string
           spent?: number | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["project_status"]
@@ -1375,6 +1377,7 @@ export type Database = {
           name?: string
           organization_id?: string
           progress?: number | null
+          project_code?: string
           spent?: number | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["project_status"]

@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import { Plus, Search, MapPin, Calendar, IndianRupee, Pencil, Trash2, Building2 } from "lucide-react";
 import { formatCurrency, formatDate, statusColor } from "@/lib/formatters";
 
-const emptyForm = { name: "", description: "", location: "", client_name: "", start_date: "", end_date: "", budget: "", status: "active", organization_id: "" };
+const emptyForm = { name: "", description: "", location: "", client_name: "", start_date: "", end_date: "", budget: "", status: "active", organization_id: "", project_code: "" };
 
 export default function Projects() {
   const { user } = useAuth();
@@ -54,7 +54,7 @@ export default function Projects() {
 
   const saveProject = useMutation({
     mutationFn: async () => {
-      const payload = {
+      const payload: any = {
         name: form.name,
         description: form.description || null,
         location: form.location || null,
@@ -64,6 +64,7 @@ export default function Projects() {
         end_date: form.end_date || null,
         budget: form.budget ? parseFloat(form.budget) : 0,
       };
+      if (form.project_code) payload.project_code = form.project_code;
       if (editingProject) {
         const { error } = await supabase.from("projects").update(payload).eq("id", editingProject.id);
         if (error) throw error;
@@ -103,6 +104,7 @@ export default function Projects() {
       name: project.name, description: project.description || "", location: project.location || "",
       client_name: project.client_name || "", start_date: project.start_date || "", end_date: project.end_date || "",
       budget: project.budget?.toString() || "", status: project.status, organization_id: project.organization_id || orgId || "",
+      project_code: project.project_code || "",
     });
     setDialogOpen(true);
   };
@@ -167,9 +169,15 @@ export default function Projects() {
                 </div>
               )}
             </div>
-            <div className="space-y-2">
-              <Label>Project Name *</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Project Name *</Label>
+                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+              </div>
+              <div className="space-y-2">
+                <Label>Project Code</Label>
+                <Input value={form.project_code} onChange={(e) => setForm({ ...form, project_code: e.target.value })} placeholder="Auto (e.g. PRJ-0001)" />
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Description</Label>
@@ -255,6 +263,7 @@ export default function Projects() {
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <CardTitle className="text-lg line-clamp-1">{project.name}</CardTitle>
+                  {project.project_code && <Badge variant="outline" className="text-[10px] font-mono shrink-0">{project.project_code}</Badge>}
                   <div className="flex items-center gap-1">
                     {can("projects:edit") && (
                       <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => openEdit(project, e)}>
