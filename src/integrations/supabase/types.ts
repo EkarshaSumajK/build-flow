@@ -2179,7 +2179,9 @@ export type Database = {
         Returns: boolean
       }
       get_accessible_org_ids: { Args: { _user_id: string }; Returns: string[] }
+      get_user_org_id_direct: { Args: { _user_id: string }; Returns: string }
       get_user_organization_id: { Args: { _user_id: string }; Returns: string }
+      get_user_parent_org_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2187,6 +2189,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_owner_direct: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "owner" | "project_manager" | "site_engineer"
