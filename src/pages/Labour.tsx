@@ -210,7 +210,12 @@ export default function Labour({ projectId }: { projectId?: string }) {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div><h1 className="text-2xl font-bold">Labour & Attendance</h1><p className="text-muted-foreground">Track workforce and attendance</p></div>
-        {can("workers:manage") && <Button onClick={() => { setEditingWorker(null); setWorkerForm(emptyWorkerForm); setWorkerDialogOpen(true); }}><Plus className="mr-2 h-4 w-4" />Add Worker</Button>}
+        {can("workers:manage") && (
+          <div className="flex items-center gap-2">
+            <BulkWorkerUpload />
+            <Button onClick={() => { setEditingWorker(null); setWorkerForm(emptyWorkerForm); setWorkerDialogOpen(true); }}><Plus className="mr-2 h-4 w-4" />Add Worker</Button>
+          </div>
+        )}
       </div>
 
       <Dialog open={workerDialogOpen} onOpenChange={(v) => { setWorkerDialogOpen(v); if (!v) setEditingWorker(null); }}>
@@ -332,7 +337,7 @@ export default function Labour({ projectId }: { projectId?: string }) {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input placeholder="Search workers..." value={search} onChange={(e) => handleSearchChange(e.target.value)} className="pl-10" />
             </div>
-            {can("workers:manage") && <BulkWorkerUpload />}
+            
           </div>
           <div className="overflow-x-auto -mx-3 sm:mx-0">
             <Card className="min-w-[600px] sm:min-w-0">
