@@ -223,8 +223,7 @@ export default function ProjectDetail() {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="materials-group">Materials</TabsTrigger>
             <TabsTrigger value="labour-group">Labour</TabsTrigger>
-            <TabsTrigger value="construction">Construction</TabsTrigger>
-            <TabsTrigger value="admin">Admin</TabsTrigger>
+            <TabsTrigger value="site-ops">Site Operations</TabsTrigger>
             <TabsTrigger value="finance">Finance</TabsTrigger>
             <TabsTrigger value="communication">Communication</TabsTrigger>
             <TabsTrigger value="reports-group">Reports</TabsTrigger>
@@ -468,28 +467,20 @@ export default function ProjectDetail() {
           <Suspense fallback={<TabLoader />}><Labour projectId={id} /></Suspense>
         </TabsContent>
 
-        {/* === CONSTRUCTION GROUP === */}
-        <TabsContent value="construction" className="mt-4">
+        {/* === SITE OPERATIONS GROUP (Construction + Admin) === */}
+        <TabsContent value="site-ops" className="mt-4">
           <Tabs defaultValue="equipment">
             <TabsList>
               <TabsTrigger value="equipment">Equipment</TabsTrigger>
               <TabsTrigger value="scheduling">Scheduling</TabsTrigger>
               <TabsTrigger value="drawings">Drawings</TabsTrigger>
-            </TabsList>
-            <TabsContent value="equipment" className="mt-4"><Suspense fallback={<TabLoader />}><Equipment projectId={id} /></Suspense></TabsContent>
-            <TabsContent value="scheduling" className="mt-4"><Suspense fallback={<TabLoader />}><Scheduling projectId={id} /></Suspense></TabsContent>
-            <TabsContent value="drawings" className="mt-4"><Suspense fallback={<TabLoader />}><Drawings projectId={id} /></Suspense></TabsContent>
-          </Tabs>
-        </TabsContent>
-
-        {/* === ADMIN GROUP === */}
-        <TabsContent value="admin" className="mt-4">
-          <Tabs defaultValue="documents">
-            <TabsList>
               <TabsTrigger value="documents">Documents</TabsTrigger>
               <TabsTrigger value="checklists">Checklists</TabsTrigger>
               <TabsTrigger value="safety">Safety</TabsTrigger>
             </TabsList>
+            <TabsContent value="equipment" className="mt-4"><Suspense fallback={<TabLoader />}><Equipment projectId={id} /></Suspense></TabsContent>
+            <TabsContent value="scheduling" className="mt-4"><Suspense fallback={<TabLoader />}><Scheduling projectId={id} /></Suspense></TabsContent>
+            <TabsContent value="drawings" className="mt-4"><Suspense fallback={<TabLoader />}><Drawings projectId={id} /></Suspense></TabsContent>
             <TabsContent value="documents" className="mt-4"><Suspense fallback={<TabLoader />}><Documents projectId={id} /></Suspense></TabsContent>
             <TabsContent value="checklists" className="mt-4"><Suspense fallback={<TabLoader />}><Checklists projectId={id} /></Suspense></TabsContent>
             <TabsContent value="safety" className="mt-4"><Suspense fallback={<TabLoader />}><Safety projectId={id} /></Suspense></TabsContent>
