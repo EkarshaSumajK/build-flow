@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, lazy, Suspense, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -217,30 +217,17 @@ export default function ProjectDetail() {
         <Card><CardContent className="pt-4"><p className="text-xs sm:text-sm text-muted-foreground">Progress</p><p className="text-lg sm:text-xl font-bold">{project.progress || 0}%</p></CardContent></Card>
       </div>
 
-      <Tabs defaultValue="kanban">
+      <Tabs defaultValue="overview">
         <ScrollArea className="w-full">
           <TabsList className="inline-flex w-max">
-            <TabsTrigger value="kanban">Kanban</TabsTrigger>
-            <TabsTrigger value="tasks">Tasks</TabsTrigger>
-            <TabsTrigger value="team">Team</TabsTrigger>
-            <TabsTrigger value="materials">Materials</TabsTrigger>
-            <TabsTrigger value="transfers">Transfers</TabsTrigger>
-            <TabsTrigger value="labour">Labour</TabsTrigger>
-            <TabsTrigger value="equipment">Equipment</TabsTrigger>
-            <TabsTrigger value="scheduling">Scheduling</TabsTrigger>
-            <TabsTrigger value="vendors">Vendors</TabsTrigger>
-            <TabsTrigger value="drawings">Drawings</TabsTrigger>
-            <TabsTrigger value="documents">Documents</TabsTrigger>
-            <TabsTrigger value="checklists">Checklists</TabsTrigger>
-            <TabsTrigger value="billing">Billing</TabsTrigger>
-            <TabsTrigger value="petty-cash">Petty Cash</TabsTrigger>
-            <TabsTrigger value="issues">Issues</TabsTrigger>
-            <TabsTrigger value="safety">Safety</TabsTrigger>
-            <TabsTrigger value="photos">Photos</TabsTrigger>
-            <TabsTrigger value="meetings">Meetings</TabsTrigger>
-            <TabsTrigger value="reports">Reports</TabsTrigger>
-            <TabsTrigger value="report-builder">Report Builder</TabsTrigger>
-            <TabsTrigger value="client-portal">Client Portal</TabsTrigger>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="materials-group">Materials</TabsTrigger>
+            <TabsTrigger value="labour-group">Labour</TabsTrigger>
+            <TabsTrigger value="construction">Construction</TabsTrigger>
+            <TabsTrigger value="admin">Admin</TabsTrigger>
+            <TabsTrigger value="finance">Finance</TabsTrigger>
+            <TabsTrigger value="communication">Communication</TabsTrigger>
+            <TabsTrigger value="reports-group">Reports</TabsTrigger>
           </TabsList>
           <ScrollBar orientation="horizontal" />
         </ScrollArea>
@@ -302,179 +289,255 @@ export default function ProjectDetail() {
           </DialogContent>
         </Dialog>
 
-        {/* Kanban Tab */}
-        <TabsContent value="kanban" className="mt-4">
-          <div className="flex justify-end mb-3">
-            <Button size="sm" onClick={() => { setEditingTask(null); setTaskForm(emptyTaskForm); setTaskDialogOpen(true); }}>
-              <Plus className="mr-2 h-4 w-4" />Add Task
-            </Button>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
-            {(["not_started", "in_progress", "completed", "blocked"] as const).map((status) => (
-              <div key={status} className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold capitalize">{status.replace("_", " ")}</h3>
-                  <Badge variant="secondary" className="text-xs">{tasksByStatus[status].length}</Badge>
-                </div>
-                <div className="space-y-2 min-h-[100px] rounded-lg border border-dashed border-border p-2">
-                  {tasksByStatus[status].map((task: any) => (
-                    <Card key={task.id} className="cursor-pointer hover:shadow-sm group" onClick={() => setSelectedTask(task)}>
-                      <CardContent className="p-3 space-y-2">
-                        <div className="flex items-start justify-between">
-                          <p className="text-sm font-medium line-clamp-2">{task.title}</p>
-                          <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={(e) => { e.stopPropagation(); openEditTask(task); }}><Pencil className="h-3 w-3 text-muted-foreground" /></button>
-                            <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(task); }}><Trash2 className="h-3 w-3 text-destructive" /></button>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <Badge variant="secondary" className={`text-xs ${priorityColor(task.priority)}`}>{task.priority}</Badge>
-                          {task.assignee_id && <span className="text-xs text-muted-foreground">{getMemberName(task.assignee_id)}</span>}
-                        </div>
-                        <Select value={task.status} onValueChange={(v) => updateTaskStatus.mutate({ taskId: task.id, status: v })}>
-                          <SelectTrigger className="h-7 text-xs" onClick={(e) => e.stopPropagation()}><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="not_started">Not Started</SelectItem><SelectItem value="in_progress">In Progress</SelectItem>
-                            <SelectItem value="completed">Completed</SelectItem><SelectItem value="blocked">Blocked</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+        {/* === OVERVIEW GROUP === */}
+        <TabsContent value="overview" className="mt-4">
+          <Tabs defaultValue="kanban">
+            <TabsList>
+              <TabsTrigger value="kanban">Kanban</TabsTrigger>
+              <TabsTrigger value="tasks">Tasks</TabsTrigger>
+              <TabsTrigger value="team">Team</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="kanban" className="mt-4">
+              <div className="flex justify-end mb-3">
+                <Button size="sm" onClick={() => { setEditingTask(null); setTaskForm(emptyTaskForm); setTaskDialogOpen(true); }}>
+                  <Plus className="mr-2 h-4 w-4" />Add Task
+                </Button>
               </div>
-            ))}
-          </div>
-        </TabsContent>
-
-        {/* Tasks List Tab */}
-        <TabsContent value="tasks" className="mt-4">
-          <div className="flex justify-end mb-3">
-            <Button size="sm" onClick={() => { setEditingTask(null); setTaskForm(emptyTaskForm); setTaskDialogOpen(true); }}>
-              <Plus className="mr-2 h-4 w-4" />Add Task
-            </Button>
-          </div>
-          <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead><TableHead>Assignee</TableHead><TableHead>Priority</TableHead>
-                  <TableHead>Status</TableHead><TableHead>Due Date</TableHead><TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tasks.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No tasks yet</TableCell></TableRow>
-                ) : tasks.map((task: any) => (
-                  <TableRow key={task.id} className="cursor-pointer" onClick={() => setSelectedTask(task)}>
-                    <TableCell className="font-medium">{task.title}</TableCell>
-                    <TableCell>{task.assignee_id ? getMemberName(task.assignee_id) : "—"}</TableCell>
-                    <TableCell><Badge className={priorityColor(task.priority)} variant="secondary">{task.priority}</Badge></TableCell>
-                    <TableCell>
-                      <Select value={task.status} onValueChange={(v) => updateTaskStatus.mutate({ taskId: task.id, status: v })}>
-                        <SelectTrigger className="h-7 w-[130px] text-xs" onClick={(e) => e.stopPropagation()}><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="not_started">Not Started</SelectItem><SelectItem value="in_progress">In Progress</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem><SelectItem value="blocked">Blocked</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>{formatDate(task.due_date)}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditTask(task)}><Pencil className="h-3.5 w-3.5" /></Button>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget(task)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-        </TabsContent>
-
-        {/* Team Tab */}
-        <TabsContent value="team" className="mt-4 space-y-4">
-          <div className="flex justify-end">
-            {canManage && (
-              <Dialog open={memberDialogOpen} onOpenChange={setMemberDialogOpen}>
-                <DialogTrigger asChild><Button size="sm"><UserPlus className="mr-2 h-4 w-4" />Add Member</Button></DialogTrigger>
-                <DialogContent>
-                  <DialogHeader><DialogTitle>Add Team Member</DialogTitle></DialogHeader>
-                  <form onSubmit={(e) => { e.preventDefault(); addMember.mutate(); }} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Member</Label>
-                      <Select value={newMemberId} onValueChange={setNewMemberId}>
-                        <SelectTrigger><SelectValue placeholder="Select member" /></SelectTrigger>
-                        <SelectContent>
-                          {members.filter(m => !projectMembers.some((pm: any) => pm.user_id === m.user_id)).map((m) => (
-                            <SelectItem key={m.user_id} value={m.user_id}>{m.full_name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
+                {(["not_started", "in_progress", "completed", "blocked"] as const).map((status) => (
+                  <div key={status} className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold capitalize">{status.replace("_", " ")}</h3>
+                      <Badge variant="secondary" className="text-xs">{tasksByStatus[status].length}</Badge>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Role</Label>
-                      <Select value={newMemberRole} onValueChange={setNewMemberRole}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="project_manager">Project Manager</SelectItem>
-                          <SelectItem value="site_engineer">Site Engineer</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div className="space-y-2 min-h-[100px] rounded-lg border border-dashed border-border p-2">
+                      {tasksByStatus[status].map((task: any) => (
+                        <Card key={task.id} className="cursor-pointer hover:shadow-sm group" onClick={() => setSelectedTask(task)}>
+                          <CardContent className="p-3 space-y-2">
+                            <div className="flex items-start justify-between">
+                              <p className="text-sm font-medium line-clamp-2">{task.title}</p>
+                              <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={(e) => { e.stopPropagation(); openEditTask(task); }}><Pencil className="h-3 w-3 text-muted-foreground" /></button>
+                                <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(task); }}><Trash2 className="h-3 w-3 text-destructive" /></button>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <Badge variant="secondary" className={`text-xs ${priorityColor(task.priority)}`}>{task.priority}</Badge>
+                              {task.assignee_id && <span className="text-xs text-muted-foreground">{getMemberName(task.assignee_id)}</span>}
+                            </div>
+                            <Select value={task.status} onValueChange={(v) => updateTaskStatus.mutate({ taskId: task.id, status: v })}>
+                              <SelectTrigger className="h-7 text-xs" onClick={(e) => e.stopPropagation()}><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="not_started">Not Started</SelectItem><SelectItem value="in_progress">In Progress</SelectItem>
+                                <SelectItem value="completed">Completed</SelectItem><SelectItem value="blocked">Blocked</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </CardContent>
+                        </Card>
+                      ))}
                     </div>
-                    <Button type="submit" className="w-full" disabled={addMember.isPending || !newMemberId}>Add Member</Button>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            )}
-          </div>
-          <Card>
-            <Table>
-              <TableHeader>
-                <TableRow><TableHead>Name</TableHead><TableHead>Role</TableHead><TableHead>Joined</TableHead>{canManage && <TableHead>Actions</TableHead>}</TableRow>
-              </TableHeader>
-              <TableBody>
-                {projectMembers.length === 0 ? (
-                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">No team members assigned</TableCell></TableRow>
-                ) : projectMembers.map((pm: any) => (
-                  <TableRow key={pm.id}>
-                    <TableCell className="font-medium">{getMemberName(pm.user_id)}</TableCell>
-                    <TableCell className="capitalize">{pm.role.replace("_", " ")}</TableCell>
-                    <TableCell>{formatDate(pm.joined_at)}</TableCell>
-                    {canManage && (
-                      <TableCell>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => removeMember.mutate(pm.id)}>
-                          <X className="h-3.5 w-3.5" />
-                        </Button>
-                      </TableCell>
-                    )}
-                  </TableRow>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
-          </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="tasks" className="mt-4">
+              <div className="flex justify-end mb-3">
+                <Button size="sm" onClick={() => { setEditingTask(null); setTaskForm(emptyTaskForm); setTaskDialogOpen(true); }}>
+                  <Plus className="mr-2 h-4 w-4" />Add Task
+                </Button>
+              </div>
+              <Card>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead><TableHead>Assignee</TableHead><TableHead>Priority</TableHead>
+                      <TableHead>Status</TableHead><TableHead>Due Date</TableHead><TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tasks.length === 0 ? (
+                      <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No tasks yet</TableCell></TableRow>
+                    ) : tasks.map((task: any) => (
+                      <TableRow key={task.id} className="cursor-pointer" onClick={() => setSelectedTask(task)}>
+                        <TableCell className="font-medium">{task.title}</TableCell>
+                        <TableCell>{task.assignee_id ? getMemberName(task.assignee_id) : "—"}</TableCell>
+                        <TableCell><Badge className={priorityColor(task.priority)} variant="secondary">{task.priority}</Badge></TableCell>
+                        <TableCell>
+                          <Select value={task.status} onValueChange={(v) => updateTaskStatus.mutate({ taskId: task.id, status: v })}>
+                            <SelectTrigger className="h-7 w-[130px] text-xs" onClick={(e) => e.stopPropagation()}><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="not_started">Not Started</SelectItem><SelectItem value="in_progress">In Progress</SelectItem>
+                              <SelectItem value="completed">Completed</SelectItem><SelectItem value="blocked">Blocked</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>{formatDate(task.due_date)}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditTask(task)}><Pencil className="h-3.5 w-3.5" /></Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget(task)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="team" className="mt-4 space-y-4">
+              <div className="flex justify-end">
+                {canManage && (
+                  <Dialog open={memberDialogOpen} onOpenChange={setMemberDialogOpen}>
+                    <DialogTrigger asChild><Button size="sm"><UserPlus className="mr-2 h-4 w-4" />Add Member</Button></DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader><DialogTitle>Add Team Member</DialogTitle></DialogHeader>
+                      <form onSubmit={(e) => { e.preventDefault(); addMember.mutate(); }} className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Member</Label>
+                          <Select value={newMemberId} onValueChange={setNewMemberId}>
+                            <SelectTrigger><SelectValue placeholder="Select member" /></SelectTrigger>
+                            <SelectContent>
+                              {members.filter(m => !projectMembers.some((pm: any) => pm.user_id === m.user_id)).map((m) => (
+                                <SelectItem key={m.user_id} value={m.user_id}>{m.full_name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Role</Label>
+                          <Select value={newMemberRole} onValueChange={setNewMemberRole}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="project_manager">Project Manager</SelectItem>
+                              <SelectItem value="site_engineer">Site Engineer</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button type="submit" className="w-full" disabled={addMember.isPending || !newMemberId}>Add Member</Button>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </div>
+              <Card>
+                <Table>
+                  <TableHeader>
+                    <TableRow><TableHead>Name</TableHead><TableHead>Role</TableHead><TableHead>Joined</TableHead>{canManage && <TableHead>Actions</TableHead>}</TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {projectMembers.length === 0 ? (
+                      <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">No team members assigned</TableCell></TableRow>
+                    ) : projectMembers.map((pm: any) => (
+                      <TableRow key={pm.id}>
+                        <TableCell className="font-medium">{getMemberName(pm.user_id)}</TableCell>
+                        <TableCell className="capitalize">{pm.role.replace("_", " ")}</TableCell>
+                        <TableCell>{formatDate(pm.joined_at)}</TableCell>
+                        {canManage && (
+                          <TableCell>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => removeMember.mutate(pm.id)}>
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
-        {/* Module Tabs - each renders the full page scoped to this project */}
-        <TabsContent value="materials" className="mt-4"><Suspense fallback={<TabLoader />}><Materials projectId={id} /></Suspense></TabsContent>
-        <TabsContent value="transfers" className="mt-4"><Suspense fallback={<TabLoader />}><InventoryTransfers projectId={id} /></Suspense></TabsContent>
-        <TabsContent value="labour" className="mt-4"><Suspense fallback={<TabLoader />}><Labour projectId={id} /></Suspense></TabsContent>
-        <TabsContent value="equipment" className="mt-4"><Suspense fallback={<TabLoader />}><Equipment projectId={id} /></Suspense></TabsContent>
-        <TabsContent value="scheduling" className="mt-4"><Suspense fallback={<TabLoader />}><Scheduling projectId={id} /></Suspense></TabsContent>
-        <TabsContent value="vendors" className="mt-4"><Suspense fallback={<TabLoader />}><Vendors projectId={id} /></Suspense></TabsContent>
-        <TabsContent value="drawings" className="mt-4"><Suspense fallback={<TabLoader />}><Drawings projectId={id} /></Suspense></TabsContent>
-        <TabsContent value="documents" className="mt-4"><Suspense fallback={<TabLoader />}><Documents projectId={id} /></Suspense></TabsContent>
-        <TabsContent value="checklists" className="mt-4"><Suspense fallback={<TabLoader />}><Checklists projectId={id} /></Suspense></TabsContent>
-        <TabsContent value="billing" className="mt-4"><Suspense fallback={<TabLoader />}><Billing projectId={id} /></Suspense></TabsContent>
-        <TabsContent value="petty-cash" className="mt-4"><Suspense fallback={<TabLoader />}><PettyCash projectId={id} /></Suspense></TabsContent>
-        <TabsContent value="issues" className="mt-4"><Suspense fallback={<TabLoader />}><Issues projectId={id} /></Suspense></TabsContent>
-        <TabsContent value="safety" className="mt-4"><Suspense fallback={<TabLoader />}><Safety projectId={id} /></Suspense></TabsContent>
-        <TabsContent value="photos" className="mt-4"><Suspense fallback={<TabLoader />}><PhotoProgress projectId={id} /></Suspense></TabsContent>
-        <TabsContent value="meetings" className="mt-4"><Suspense fallback={<TabLoader />}><MeetingMinutes projectId={id} /></Suspense></TabsContent>
-        <TabsContent value="reports" className="mt-4"><Suspense fallback={<TabLoader />}><Reports projectId={id} /></Suspense></TabsContent>
-        <TabsContent value="report-builder" className="mt-4"><Suspense fallback={<TabLoader />}><ReportBuilder projectId={id} /></Suspense></TabsContent>
-        <TabsContent value="client-portal" className="mt-4"><Suspense fallback={<TabLoader />}><ClientPortal projectId={id} /></Suspense></TabsContent>
+        {/* === MATERIALS GROUP === */}
+        <TabsContent value="materials-group" className="mt-4">
+          <Tabs defaultValue="materials">
+            <TabsList>
+              <TabsTrigger value="materials">Materials</TabsTrigger>
+              <TabsTrigger value="transfers">Transfers</TabsTrigger>
+            </TabsList>
+            <TabsContent value="materials" className="mt-4"><Suspense fallback={<TabLoader />}><Materials projectId={id} /></Suspense></TabsContent>
+            <TabsContent value="transfers" className="mt-4"><Suspense fallback={<TabLoader />}><InventoryTransfers projectId={id} /></Suspense></TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        {/* === LABOUR GROUP === */}
+        <TabsContent value="labour-group" className="mt-4">
+          <Suspense fallback={<TabLoader />}><Labour projectId={id} /></Suspense>
+        </TabsContent>
+
+        {/* === CONSTRUCTION GROUP === */}
+        <TabsContent value="construction" className="mt-4">
+          <Tabs defaultValue="equipment">
+            <TabsList>
+              <TabsTrigger value="equipment">Equipment</TabsTrigger>
+              <TabsTrigger value="scheduling">Scheduling</TabsTrigger>
+              <TabsTrigger value="drawings">Drawings</TabsTrigger>
+            </TabsList>
+            <TabsContent value="equipment" className="mt-4"><Suspense fallback={<TabLoader />}><Equipment projectId={id} /></Suspense></TabsContent>
+            <TabsContent value="scheduling" className="mt-4"><Suspense fallback={<TabLoader />}><Scheduling projectId={id} /></Suspense></TabsContent>
+            <TabsContent value="drawings" className="mt-4"><Suspense fallback={<TabLoader />}><Drawings projectId={id} /></Suspense></TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        {/* === ADMIN GROUP === */}
+        <TabsContent value="admin" className="mt-4">
+          <Tabs defaultValue="documents">
+            <TabsList>
+              <TabsTrigger value="documents">Documents</TabsTrigger>
+              <TabsTrigger value="checklists">Checklists</TabsTrigger>
+              <TabsTrigger value="safety">Safety</TabsTrigger>
+            </TabsList>
+            <TabsContent value="documents" className="mt-4"><Suspense fallback={<TabLoader />}><Documents projectId={id} /></Suspense></TabsContent>
+            <TabsContent value="checklists" className="mt-4"><Suspense fallback={<TabLoader />}><Checklists projectId={id} /></Suspense></TabsContent>
+            <TabsContent value="safety" className="mt-4"><Suspense fallback={<TabLoader />}><Safety projectId={id} /></Suspense></TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        {/* === FINANCE GROUP === */}
+        <TabsContent value="finance" className="mt-4">
+          <Tabs defaultValue="billing">
+            <TabsList>
+              <TabsTrigger value="billing">Billing</TabsTrigger>
+              <TabsTrigger value="petty-cash">Petty Cash</TabsTrigger>
+              <TabsTrigger value="vendors">Vendors</TabsTrigger>
+            </TabsList>
+            <TabsContent value="billing" className="mt-4"><Suspense fallback={<TabLoader />}><Billing projectId={id} /></Suspense></TabsContent>
+            <TabsContent value="petty-cash" className="mt-4"><Suspense fallback={<TabLoader />}><PettyCash projectId={id} /></Suspense></TabsContent>
+            <TabsContent value="vendors" className="mt-4"><Suspense fallback={<TabLoader />}><Vendors projectId={id} /></Suspense></TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        {/* === COMMUNICATION GROUP === */}
+        <TabsContent value="communication" className="mt-4">
+          <Tabs defaultValue="issues">
+            <TabsList>
+              <TabsTrigger value="issues">Issues</TabsTrigger>
+              <TabsTrigger value="photos">Photos</TabsTrigger>
+              <TabsTrigger value="meetings">Meetings</TabsTrigger>
+            </TabsList>
+            <TabsContent value="issues" className="mt-4"><Suspense fallback={<TabLoader />}><Issues projectId={id} /></Suspense></TabsContent>
+            <TabsContent value="photos" className="mt-4"><Suspense fallback={<TabLoader />}><PhotoProgress projectId={id} /></Suspense></TabsContent>
+            <TabsContent value="meetings" className="mt-4"><Suspense fallback={<TabLoader />}><MeetingMinutes projectId={id} /></Suspense></TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        {/* === REPORTS GROUP === */}
+        <TabsContent value="reports-group" className="mt-4">
+          <Tabs defaultValue="reports">
+            <TabsList>
+              <TabsTrigger value="reports">Reports</TabsTrigger>
+              <TabsTrigger value="report-builder">Report Builder</TabsTrigger>
+              <TabsTrigger value="client-portal">Client Portal</TabsTrigger>
+            </TabsList>
+            <TabsContent value="reports" className="mt-4"><Suspense fallback={<TabLoader />}><Reports projectId={id} /></Suspense></TabsContent>
+            <TabsContent value="report-builder" className="mt-4"><Suspense fallback={<TabLoader />}><ReportBuilder projectId={id} /></Suspense></TabsContent>
+            <TabsContent value="client-portal" className="mt-4"><Suspense fallback={<TabLoader />}><ClientPortal projectId={id} /></Suspense></TabsContent>
+          </Tabs>
+        </TabsContent>
+
       </Tabs>
     </div>
   );
