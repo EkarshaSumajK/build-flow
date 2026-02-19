@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useOrganization } from "@/hooks/useOrganization";
+import { useOrganization, useAccessibleOrgs } from "@/hooks/useOrganization";
 import { useOrgMembers } from "@/hooks/useOrgMembers";
 import { useRole } from "@/hooks/useRole";
 import { useNavigate } from "react-router-dom";
@@ -16,20 +16,22 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { toast } from "sonner";
-import { Plus, Search, MapPin, Calendar, IndianRupee, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, MapPin, Calendar, IndianRupee, Pencil, Trash2, Building2 } from "lucide-react";
 import { formatCurrency, formatDate, statusColor } from "@/lib/formatters";
 
-const emptyForm = { name: "", description: "", location: "", client_name: "", start_date: "", end_date: "", budget: "", status: "active" };
+const emptyForm = { name: "", description: "", location: "", client_name: "", start_date: "", end_date: "", budget: "", status: "active", organization_id: "", project_code: "" };
 
 export default function Projects() {
   const { user } = useAuth();
   const { data: orgId } = useOrganization();
+  const { data: accessibleOrgs = [] } = useAccessibleOrgs();
   const { data: members = [] } = useOrgMembers();
   const { can } = useRole();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [orgFilter, setOrgFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
@@ -39,18 +41,20 @@ export default function Projects() {
   const [form, setForm] = useState(emptyForm);
 
   const { data: projects = [], isLoading } = useQuery({
-    queryKey: ["projects", orgId],
+    queryKey: ["projects", orgId, accessibleOrgs.map(o => o.id)],
     queryFn: async () => {
-      const { data, error } = await supabase.from("projects").select("*").eq("organization_id", orgId!).order("created_at", { ascending: false });
+      const orgIds = accessibleOrgs.map(o => o.id);
+      if (!orgIds.length) return [];
+      const { data, error } = await supabase.from("projects").select("*").in("organization_id", orgIds).order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
-    enabled: !!orgId,
+    enabled: !!orgId && accessibleOrgs.length > 0,
   });
 
   const saveProject = useMutation({
     mutationFn: async () => {
-      const payload = {
+      const payload: any = {
         name: form.name,
         description: form.description || null,
         location: form.location || null,
@@ -60,11 +64,13 @@ export default function Projects() {
         end_date: form.end_date || null,
         budget: form.budget ? parseFloat(form.budget) : 0,
       };
+      if (form.project_code) payload.project_code = form.project_code;
       if (editingProject) {
         const { error } = await supabase.from("projects").update(payload).eq("id", editingProject.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("projects").insert({ ...payload, organization_id: orgId!, created_by: user!.id });
+        const targetOrgId = form.organization_id || orgId!;
+        const { error } = await supabase.from("projects").insert({ ...payload, organization_id: targetOrgId, created_by: user!.id });
         if (error) throw error;
       }
     },
@@ -97,23 +103,27 @@ export default function Projects() {
     setForm({
       name: project.name, description: project.description || "", location: project.location || "",
       client_name: project.client_name || "", start_date: project.start_date || "", end_date: project.end_date || "",
-      budget: project.budget?.toString() || "", status: project.status,
+      budget: project.budget?.toString() || "", status: project.status, organization_id: project.organization_id || orgId || "",
+      project_code: project.project_code || "",
     });
     setDialogOpen(true);
   };
 
   const openCreate = () => {
     setEditingProject(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, organization_id: orgId || "" });
     setDialogOpen(true);
   };
+
+  const getOrgName = (orgIdVal: string) => accessibleOrgs.find(o => o.id === orgIdVal)?.name || "";
 
   const filtered = projects.filter((p: any) => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
       (p.location ?? "").toLowerCase().includes(search.toLowerCase()) ||
       (p.client_name ?? "").toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === "all" || p.status === statusFilter;
-    return matchSearch && matchStatus;
+    const matchOrg = orgFilter === "all" || p.organization_id === orgFilter;
+    return matchSearch && matchStatus && matchOrg;
   });
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
@@ -136,8 +146,38 @@ export default function Projects() {
           <DialogHeader><DialogTitle>{editingProject ? "Edit Project" : "Create New Project"}</DialogTitle></DialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); saveProject.mutate(); }} className="space-y-4">
             <div className="space-y-2">
-              <Label>Project Name *</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+              <Label>Organization</Label>
+              {accessibleOrgs.length > 1 ? (
+                <Select value={form.organization_id} onValueChange={(v) => setForm({ ...form, organization_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select organization" /></SelectTrigger>
+                  <SelectContent>
+                    {accessibleOrgs.map((org) => (
+                      <SelectItem key={org.id} value={org.id}>
+                        <span className="flex items-center gap-2">
+                          <Building2 className="h-3.5 w-3.5" />
+                          {org.name}
+                          {org.parent_organization_id && <Badge variant="outline" className="text-[10px] ml-1">Sub-org</Badge>}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground">
+                  <Building2 className="h-3.5 w-3.5" />
+                  {accessibleOrgs[0]?.name || "Your Organization"}
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Project Name *</Label>
+                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+              </div>
+              <div className="space-y-2">
+                <Label>Project Code</Label>
+                <Input value={form.project_code} onChange={(e) => setForm({ ...form, project_code: e.target.value })} placeholder="Auto (e.g. PRJ-0001)" />
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Description</Label>
@@ -187,6 +227,18 @@ export default function Projects() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Search projects..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
         </div>
+        <Select value={orgFilter} onValueChange={setOrgFilter}>
+          <SelectTrigger className="w-[200px]"><SelectValue placeholder="All Organizations" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Organizations</SelectItem>
+            {accessibleOrgs.map((org) => (
+              <SelectItem key={org.id} value={org.id}>
+                {org.name}
+                {org.parent_organization_id ? " (Sub-org)" : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[160px]"><SelectValue placeholder="All Status" /></SelectTrigger>
           <SelectContent>
@@ -207,10 +259,11 @@ export default function Projects() {
         <div className="space-y-4">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {paginated.map((project: any) => (
-            <Card key={project.id} className="cursor-pointer hover:shadow-md transition-shadow group" onClick={() => navigate(`/projects/${project.id}`)}>
+            <Card key={project.id} className="cursor-pointer hover:shadow-md transition-shadow group" onClick={() => navigate(`/projects/${project.project_code || project.id}`)}>
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <CardTitle className="text-lg line-clamp-1">{project.name}</CardTitle>
+                  {project.project_code && <Badge variant="outline" className="text-[10px] font-mono shrink-0">{project.project_code}</Badge>}
                   <div className="flex items-center gap-1">
                     {can("projects:edit") && (
                       <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => openEdit(project, e)}>
@@ -226,6 +279,12 @@ export default function Projects() {
                   </div>
                 </div>
                 {project.client_name && <p className="text-sm text-muted-foreground">{project.client_name}</p>}
+                {accessibleOrgs.length > 1 && getOrgName(project.organization_id) && (
+                  <div className="flex items-center gap-1 mt-1">
+                    <Building2 className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">{getOrgName(project.organization_id)}</span>
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="space-y-3">
                 {project.location && (

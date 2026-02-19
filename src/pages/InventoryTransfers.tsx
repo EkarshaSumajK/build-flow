@@ -17,7 +17,7 @@ import { Plus, ArrowRight } from "lucide-react";
 import { formatDate, statusColor } from "@/lib/formatters";
 import { TablePagination } from "@/components/shared/TablePagination";
 
-export default function InventoryTransfers() {
+export default function InventoryTransfers({ projectId }: { projectId?: string }) {
   const { user } = useAuth();
   const { data: orgId } = useOrganization();
   const queryClient = useQueryClient();
@@ -48,13 +48,15 @@ export default function InventoryTransfers() {
   });
 
   const { data: transfers = [], isLoading } = useQuery({
-    queryKey: ["inventory-transfers", orgId],
+    queryKey: ["inventory-transfers", orgId, projectId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("inventory_transfers")
         .select("*, materials(name, unit), from_project:projects!inventory_transfers_from_project_id_fkey(name), to_project:projects!inventory_transfers_to_project_id_fkey(name)")
         .eq("organization_id", orgId!)
         .order("created_at", { ascending: false });
+      if (projectId) q = q.or(`from_project_id.eq.${projectId},to_project_id.eq.${projectId}`);
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },

@@ -15,14 +15,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { toast } from "sonner";
-import { Plus, Search, Calendar, Pencil, Trash2, AlertCircle } from "lucide-react";
+import { Plus, Search, Calendar, Pencil, Trash2, AlertCircle, UserPlus, UserMinus } from "lucide-react";
 import { formatCurrency, formatDate, statusColor } from "@/lib/formatters";
 import { AttendanceCalendar } from "@/components/labour/AttendanceCalendar";
 import { WorkerTaskAssignment } from "@/components/labour/WorkerTaskAssignment";
 import { PayrollCalculator } from "@/components/labour/PayrollCalculator";
+import { BulkWorkerUpload } from "@/components/labour/BulkWorkerUpload";
 import { TablePagination } from "@/components/shared/TablePagination";
 
-export default function Labour() {
+export default function Labour({ projectId }: { projectId?: string }) {
   const { user } = useAuth();
   const { data: orgId } = useOrganization();
   const { can } = useRole();
@@ -32,11 +33,12 @@ export default function Labour() {
   const [editingWorker, setEditingWorker] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split("T")[0]);
-  const [selectedProject, setSelectedProject] = useState<string>("");
+  const [selectedProject, setSelectedProject] = useState<string>(projectId || "");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [attendancePage, setAttendancePage] = useState(1);
   const [attendancePageSize, setAttendancePageSize] = useState(10);
+  const [mutatingWorkerId, setMutatingWorkerId] = useState<string | null>(null);
 
   const emptyWorkerForm = { name: "", trade: "", daily_rate: "", contractor: "", phone: "" };
   const [workerForm, setWorkerForm] = useState(emptyWorkerForm);
@@ -68,6 +70,50 @@ export default function Labour() {
       if (error) throw error; return data;
     },
     enabled: !!orgId,
+  });
+
+  // Fetch workers assigned to the selected project
+  const { data: projectWorkerIds = [] } = useQuery({
+    queryKey: ["project_workers", selectedProject || projectId],
+    queryFn: async () => {
+      const pid = selectedProject || projectId;
+      const { data, error } = await supabase.from("project_workers").select("worker_id").eq("project_id", pid!);
+      if (error) throw error;
+      return data.map((pw: any) => pw.worker_id as string);
+    },
+    enabled: !!(selectedProject || projectId),
+  });
+
+  const assignWorker = useMutation({
+    mutationFn: async (workerId: string) => {
+      setMutatingWorkerId(workerId);
+      const pid = selectedProject || projectId;
+      if (!pid) throw new Error("No project selected");
+      const { error } = await supabase.from("project_workers").insert({ project_id: pid, worker_id: workerId, organization_id: orgId! });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["project_workers"] });
+      toast.success("Worker assigned to project!");
+    },
+    onError: (e) => toast.error(e.message),
+    onSettled: () => setMutatingWorkerId(null),
+  });
+
+  const unassignWorker = useMutation({
+    mutationFn: async (workerId: string) => {
+      setMutatingWorkerId(workerId);
+      const pid = selectedProject || projectId;
+      if (!pid) throw new Error("No project selected");
+      const { error } = await supabase.from("project_workers").delete().eq("project_id", pid).eq("worker_id", workerId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["project_workers"] });
+      toast.success("Worker removed from project!");
+    },
+    onError: (e) => toast.error(e.message),
+    onSettled: () => setMutatingWorkerId(null),
   });
 
   const saveWorker = useMutation({
@@ -150,8 +196,8 @@ export default function Labour() {
   const totalPages = Math.ceil(filteredWorkers.length / pageSize);
   const paginatedWorkers = filteredWorkers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  // Pagination for attendance tab
-  const activeWorkers = workers.filter((w: any) => w.is_active);
+  // Pagination for attendance tab — show only project-assigned active workers
+  const activeWorkers = workers.filter((w: any) => w.is_active && (!(selectedProject || projectId) || projectWorkerIds.includes(w.id)));
   const attendanceTotalPages = Math.ceil(activeWorkers.length / attendancePageSize);
   const paginatedAttendanceWorkers = activeWorkers.slice((attendancePage - 1) * attendancePageSize, attendancePage * attendancePageSize);
 
@@ -164,7 +210,12 @@ export default function Labour() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div><h1 className="text-2xl font-bold">Labour & Attendance</h1><p className="text-muted-foreground">Track workforce and attendance</p></div>
-        {can("workers:manage") && <Button onClick={() => { setEditingWorker(null); setWorkerForm(emptyWorkerForm); setWorkerDialogOpen(true); }}><Plus className="mr-2 h-4 w-4" />Add Worker</Button>}
+        {can("workers:manage") && (
+          <div className="flex items-center gap-2">
+            <BulkWorkerUpload />
+            <Button onClick={() => { setEditingWorker(null); setWorkerForm(emptyWorkerForm); setWorkerDialogOpen(true); }}><Plus className="mr-2 h-4 w-4" />Add Worker</Button>
+          </div>
+        )}
       </div>
 
       <Dialog open={workerDialogOpen} onOpenChange={(v) => { setWorkerDialogOpen(v); if (!v) setEditingWorker(null); }}>
@@ -281,37 +332,58 @@ export default function Labour() {
         </TabsContent>
 
         <TabsContent value="workers" className="mt-4">
-          <div className="mb-4 relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search workers..." value={search} onChange={(e) => handleSearchChange(e.target.value)} className="pl-10" />
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="Search workers..." value={search} onChange={(e) => handleSearchChange(e.target.value)} className="pl-10" />
+            </div>
+            
           </div>
           <div className="overflow-x-auto -mx-3 sm:mx-0">
             <Card className="min-w-[600px] sm:min-w-0">
               <Table>
                 <TableHeader>
-                  <TableRow><TableHead>Name</TableHead><TableHead>Trade</TableHead><TableHead>Daily Rate</TableHead><TableHead className="hidden sm:table-cell">Contractor</TableHead><TableHead className="hidden sm:table-cell">Phone</TableHead><TableHead>Status</TableHead><TableHead>Actions</TableHead></TableRow>
+                  <TableRow><TableHead>Name</TableHead><TableHead>Trade</TableHead><TableHead>Daily Rate</TableHead><TableHead className="hidden sm:table-cell">Contractor</TableHead><TableHead className="hidden sm:table-cell">Phone</TableHead><TableHead>Status</TableHead>{(selectedProject || projectId) && <TableHead>Project</TableHead>}<TableHead>Actions</TableHead></TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedWorkers.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No workers found</TableCell></TableRow>
-                  ) : paginatedWorkers.map((w: any) => (
+                     <TableRow><TableCell colSpan={(selectedProject || projectId) ? 8 : 7} className="text-center text-muted-foreground py-8">No workers found</TableCell></TableRow>
+                   ) : paginatedWorkers.map((w: any) => {
+                     const isAssigned = projectWorkerIds.includes(w.id);
+                     return (
                     <TableRow key={w.id}>
                       <TableCell className="font-medium">{w.name}</TableCell>
                       <TableCell>{w.trade || "—"}</TableCell>
                       <TableCell>{formatCurrency(w.daily_rate)}</TableCell>
                       <TableCell className="hidden sm:table-cell">{w.contractor || "—"}</TableCell>
                       <TableCell className="hidden sm:table-cell">{w.phone || "—"}</TableCell>
-                      <TableCell><Badge className={w.is_active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"} variant="secondary">{w.is_active ? "Active" : "Inactive"}</Badge></TableCell>
-                      <TableCell>
-                      {can("workers:manage") ? (
-                        <div className="flex gap-1">
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(w)}><Pencil className="h-3.5 w-3.5" /></Button>
-                          {w.is_active && <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget(w)}><Trash2 className="h-3.5 w-3.5" /></Button>}
-                        </div>
-                      ) : <span className="text-xs text-muted-foreground">—</span>}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                       <TableCell><Badge className={w.is_active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"} variant="secondary">{w.is_active ? "Active" : "Inactive"}</Badge></TableCell>
+                       {(selectedProject || projectId) && (
+                         <TableCell>
+                           {can("workers:manage") && w.is_active ? (
+                             isAssigned ? (
+                               <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => unassignWorker.mutate(w.id)} disabled={mutatingWorkerId === w.id}>
+                                 <UserMinus className="mr-1 h-3 w-3" />{mutatingWorkerId === w.id ? "..." : "Unassign"}
+                               </Button>
+                             ) : (
+                               <Button size="sm" variant="default" className="h-7 text-xs" onClick={() => assignWorker.mutate(w.id)} disabled={mutatingWorkerId === w.id}>
+                                 <UserPlus className="mr-1 h-3 w-3" />{mutatingWorkerId === w.id ? "..." : "Assign"}
+                               </Button>
+                             )
+                           ) : <span className="text-xs text-muted-foreground">{isAssigned ? "Assigned" : "—"}</span>}
+                         </TableCell>
+                       )}
+                       <TableCell>
+                       {can("workers:manage") ? (
+                         <div className="flex gap-1">
+                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(w)}><Pencil className="h-3.5 w-3.5" /></Button>
+                           {w.is_active && <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => setDeleteTarget(w)}><Trash2 className="h-3.5 w-3.5" /></Button>}
+                         </div>
+                       ) : <span className="text-xs text-muted-foreground">—</span>}
+                       </TableCell>
+                     </TableRow>
+                   );
+                   })}
                 </TableBody>
               </Table>
               {filteredWorkers.length > 0 && (

@@ -19,7 +19,7 @@ import { Plus, ShieldAlert, MessageSquare } from "lucide-react";
 import { formatDate, statusColor, priorityColor } from "@/lib/formatters";
 import { TablePagination } from "@/components/shared/TablePagination";
 
-export default function Safety() {
+export default function Safety({ projectId }: { projectId?: string }) {
   const { user } = useAuth();
   const { data: orgId } = useOrganization();
   const { data: members = [] } = useOrgMembers();
@@ -31,10 +31,10 @@ export default function Safety() {
   const [talksPage, setTalksPage] = useState(1);
   const [talksPageSize, setTalksPageSize] = useState(12);
 
-  const incidentEmpty = { project_id: "", title: "", incident_type: "near_miss", severity: "low", description: "", location: "", corrective_action: "" };
+  const incidentEmpty = { project_id: projectId || "", title: "", incident_type: "near_miss", severity: "low", description: "", location: "", corrective_action: "" };
   const [incForm, setIncForm] = useState(incidentEmpty);
 
-  const talkEmpty = { project_id: "", topic: "", description: "", conducted_date: new Date().toISOString().split("T")[0], attendee_names: "", attendee_count: "", notes: "" };
+  const talkEmpty = { project_id: projectId || "", topic: "", description: "", conducted_date: new Date().toISOString().split("T")[0], attendee_names: "", attendee_count: "", notes: "" };
   const [talkForm, setTalkForm] = useState(talkEmpty);
 
   const { data: projects = [] } = useQuery({
@@ -44,13 +44,15 @@ export default function Safety() {
       if (error) throw error;
       return data;
     },
-    enabled: !!orgId,
+    enabled: !!orgId && !projectId,
   });
 
   const { data: incidents = [], isLoading: loadingInc } = useQuery({
-    queryKey: ["safety-incidents", orgId],
+    queryKey: ["safety-incidents", orgId, projectId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("safety_incidents").select("*, projects(name)").eq("organization_id", orgId!).order("incident_date", { ascending: false });
+      let q = supabase.from("safety_incidents").select("*, projects(name)").eq("organization_id", orgId!).order("incident_date", { ascending: false });
+      if (projectId) q = q.eq("project_id", projectId);
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },
@@ -58,9 +60,11 @@ export default function Safety() {
   });
 
   const { data: talks = [], isLoading: loadingTalks } = useQuery({
-    queryKey: ["toolbox-talks", orgId],
+    queryKey: ["toolbox-talks", orgId, projectId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("toolbox_talks").select("*, projects(name)").eq("organization_id", orgId!).order("conducted_date", { ascending: false });
+      let q = supabase.from("toolbox_talks").select("*, projects(name)").eq("organization_id", orgId!).order("conducted_date", { ascending: false });
+      if (projectId) q = q.eq("project_id", projectId);
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },
@@ -71,7 +75,7 @@ export default function Safety() {
     mutationFn: async () => {
       const { error } = await supabase.from("safety_incidents").insert({
         organization_id: orgId!,
-        project_id: incForm.project_id,
+        project_id: projectId || incForm.project_id,
         title: incForm.title,
         incident_type: incForm.incident_type,
         severity: incForm.severity,
@@ -96,7 +100,7 @@ export default function Safety() {
       const names = talkForm.attendee_names.split(",").map((n) => n.trim()).filter(Boolean);
       const { error } = await supabase.from("toolbox_talks").insert({
         organization_id: orgId!,
-        project_id: talkForm.project_id,
+        project_id: projectId || talkForm.project_id,
         topic: talkForm.topic,
         description: talkForm.description || null,
         conducted_by: user!.id,
@@ -130,11 +134,9 @@ export default function Safety() {
 
   const openCount = incidents.filter((i: any) => i.status === "reported" || i.status === "investigating").length;
 
-  // Pagination for incidents
   const totalPages = Math.ceil(incidents.length / pageSize);
   const paginatedIncidents = incidents.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  // Pagination for toolbox talks
   const talksTotalPages = Math.ceil(talks.length / talksPageSize);
   const paginatedTalks = talks.slice((talksPage - 1) * talksPageSize, talksPage * talksPageSize);
 
@@ -171,13 +173,15 @@ export default function Safety() {
               <DialogHeader><DialogTitle>Report Safety Incident</DialogTitle></DialogHeader>
               <form onSubmit={(e) => { e.preventDefault(); saveIncident.mutate(); }} className="space-y-4">
                 <div className="space-y-2"><Label>Title *</Label><Input value={incForm.title} onChange={(e) => setIncForm({ ...incForm, title: e.target.value })} required /></div>
-                <div className="space-y-2">
-                  <Label>Project *</Label>
-                  <Select value={incForm.project_id} onValueChange={(v) => setIncForm({ ...incForm, project_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>{projects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
+                {!projectId && (
+                  <div className="space-y-2">
+                    <Label>Project *</Label>
+                    <Select value={incForm.project_id} onValueChange={(v) => setIncForm({ ...incForm, project_id: v })}>
+                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>{projects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Type</Label>
@@ -214,7 +218,7 @@ export default function Safety() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Title</TableHead><TableHead>Type</TableHead><TableHead>Severity</TableHead>
-                  <TableHead>Status</TableHead><TableHead className="hidden sm:table-cell">Project</TableHead>
+                  <TableHead>Status</TableHead>{!projectId && <TableHead className="hidden sm:table-cell">Project</TableHead>}
                   <TableHead className="hidden sm:table-cell">Date</TableHead><TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -237,7 +241,7 @@ export default function Safety() {
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell text-sm">{(inc as any).projects?.name}</TableCell>
+                    {!projectId && <TableCell className="hidden sm:table-cell text-sm">{(inc as any).projects?.name}</TableCell>}
                     <TableCell className="hidden sm:table-cell text-sm">{formatDate(inc.incident_date)}</TableCell>
                     <TableCell />
                   </TableRow>
@@ -268,13 +272,15 @@ export default function Safety() {
               <form onSubmit={(e) => { e.preventDefault(); saveTalk.mutate(); }} className="space-y-4">
                 <div className="space-y-2"><Label>Topic *</Label><Input value={talkForm.topic} onChange={(e) => setTalkForm({ ...talkForm, topic: e.target.value })} required /></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Project *</Label>
-                    <Select value={talkForm.project_id} onValueChange={(v) => setTalkForm({ ...talkForm, project_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>{projects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
+                  {!projectId && (
+                    <div className="space-y-2">
+                      <Label>Project *</Label>
+                      <Select value={talkForm.project_id} onValueChange={(v) => setTalkForm({ ...talkForm, project_id: v })}>
+                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>{projects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   <div className="space-y-2"><Label>Date</Label><Input type="date" value={talkForm.conducted_date} onChange={(e) => setTalkForm({ ...talkForm, conducted_date: e.target.value })} /></div>
                 </div>
                 <div className="space-y-2"><Label>Description</Label><Textarea value={talkForm.description} onChange={(e) => setTalkForm({ ...talkForm, description: e.target.value })} /></div>

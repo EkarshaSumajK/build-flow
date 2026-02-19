@@ -15,10 +15,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Building2, Users, Shield, Save, UserPlus, Trash2, Loader2, Copy, Check } from "lucide-react";
+import { Building2, Users, Shield, Save, UserPlus, Trash2, Loader2, Copy, Check, Network } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import type { Database } from "@/integrations/supabase/types";
+import { lazy, Suspense } from "react";
+
+const SubOrganizations = lazy(() => import("@/components/settings/SubOrganizations"));
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -189,6 +192,12 @@ export default function Settings() {
             <Shield className="h-4 w-4" />
             Roles & Permissions
           </TabsTrigger>
+          {isOwner && (
+            <TabsTrigger value="sub-orgs" className="gap-2">
+              <Network className="h-4 w-4" />
+              Sub-Organizations
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="organization" className="space-y-4">
@@ -441,6 +450,13 @@ export default function Settings() {
             </CardContent>
           </Card>
         </TabsContent>
+        {isOwner && (
+          <TabsContent value="sub-orgs" className="space-y-4">
+            <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
+              <SubOrganizations />
+            </Suspense>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

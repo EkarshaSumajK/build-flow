@@ -175,7 +175,7 @@ export default function Dashboard() {
                   <div
                     key={project.id}
                     className="flex items-center justify-between cursor-pointer hover:bg-muted/50 rounded-xl p-3 -mx-1 transition-all duration-200 ease-apple"
-                    onClick={() => navigate(`/projects/${project.id}`)}
+                    onClick={() => navigate(`/projects/${(project as any).project_code || project.id}`)}
                   >
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">{project.name}</p>

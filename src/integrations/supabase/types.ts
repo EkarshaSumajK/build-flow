@@ -1073,6 +1073,7 @@ export type Database = {
           id: string
           logo_url: string | null
           name: string
+          parent_organization_id: string | null
           slug: string
           updated_at: string
         }
@@ -1081,6 +1082,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name: string
+          parent_organization_id?: string | null
           slug: string
           updated_at?: string
         }
@@ -1089,10 +1091,19 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name?: string
+          parent_organization_id?: string | null
           slug?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "organizations_parent_organization_id_fkey"
+            columns: ["parent_organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       petty_cash_entries: {
         Row: {
@@ -1317,6 +1328,52 @@ export type Database = {
           },
         ]
       }
+      project_workers: {
+        Row: {
+          assigned_at: string
+          id: string
+          organization_id: string
+          project_id: string
+          worker_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          id?: string
+          organization_id: string
+          project_id: string
+          worker_id: string
+        }
+        Update: {
+          assigned_at?: string
+          id?: string
+          organization_id?: string
+          project_id?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_workers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_workers_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_workers_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           budget: number | null
@@ -1330,6 +1387,7 @@ export type Database = {
           name: string
           organization_id: string
           progress: number | null
+          project_code: string
           spent: number | null
           start_date: string | null
           status: Database["public"]["Enums"]["project_status"]
@@ -1347,6 +1405,7 @@ export type Database = {
           name: string
           organization_id: string
           progress?: number | null
+          project_code?: string
           spent?: number | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["project_status"]
@@ -1364,6 +1423,7 @@ export type Database = {
           name?: string
           organization_id?: string
           progress?: number | null
+          project_code?: string
           spent?: number | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["project_status"]
@@ -2163,7 +2223,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_org: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: boolean
+      }
+      get_accessible_org_ids: { Args: { _user_id: string }; Returns: string[] }
+      get_user_org_id_direct: { Args: { _user_id: string }; Returns: string }
       get_user_organization_id: { Args: { _user_id: string }; Returns: string }
+      get_user_parent_org_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2171,6 +2238,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_owner_direct: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "owner" | "project_manager" | "site_engineer"

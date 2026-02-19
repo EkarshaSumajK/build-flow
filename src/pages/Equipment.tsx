@@ -21,7 +21,7 @@ import { TablePagination } from "@/components/shared/TablePagination";
 
 const DEFAULT_PAGE_SIZE = 10;
 
-export default function Equipment() {
+export default function Equipment({ projectId }: { projectId?: string }) {
   const { user } = useAuth();
   const { data: orgId } = useOrganization();
   const queryClient = useQueryClient();
@@ -48,9 +48,11 @@ export default function Equipment() {
   });
 
   const { data: equipment = [], isLoading } = useQuery({
-    queryKey: ["equipment", orgId],
+    queryKey: ["equipment", orgId, projectId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("equipment").select("*, projects(name)").eq("organization_id", orgId!).order("name");
+      let q = supabase.from("equipment").select("*, projects(name)").eq("organization_id", orgId!).order("name");
+      if (projectId) q = q.eq("current_project_id", projectId);
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },

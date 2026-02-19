@@ -22,7 +22,7 @@ import { GoodsReceipts } from "@/components/materials/GoodsReceipts";
 import { createPOFromRequest, fetchVendors } from "@/services/materials";
 import { FileOutput } from "lucide-react";
 
-export default function Materials() {
+export default function Materials({ projectId }: { projectId?: string }) {
   const { user } = useAuth();
   const { data: orgId } = useOrganization();
   const { can } = useRole();
@@ -38,8 +38,8 @@ export default function Materials() {
 
   const emptyMaterialForm = { name: "", category: "", unit: "nos", standard_rate: "", description: "" };
   const [materialForm, setMaterialForm] = useState(emptyMaterialForm);
-  const [requestForm, setRequestForm] = useState({ project_id: "", material_id: "", quantity: "", unit_price: "", priority: "medium", required_date: "", notes: "" });
-  const [stockForm, setStockForm] = useState({ project_id: "", material_id: "", quantity: "", entry_type: "in", notes: "" });
+  const [requestForm, setRequestForm] = useState({ project_id: projectId || "", material_id: "", quantity: "", unit_price: "", priority: "medium", required_date: "", notes: "" });
+  const [stockForm, setStockForm] = useState({ project_id: projectId || "", material_id: "", quantity: "", entry_type: "in", notes: "" });
 
   const { data: materials = [] } = useQuery({
     queryKey: ["materials", orgId],
@@ -51,9 +51,11 @@ export default function Materials() {
   });
 
   const { data: requests = [] } = useQuery({
-    queryKey: ["material-requests", orgId],
+    queryKey: ["material-requests", orgId, projectId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("material_requests").select("*, materials(name, unit), projects(name)").eq("organization_id", orgId!).order("created_at", { ascending: false });
+      let q = supabase.from("material_requests").select("*, materials(name, unit), projects(name)").eq("organization_id", orgId!).order("created_at", { ascending: false });
+      if (projectId) q = q.eq("project_id", projectId);
+      const { data, error } = await q;
       if (error) throw error; return data;
     },
     enabled: !!orgId,
@@ -69,9 +71,11 @@ export default function Materials() {
   });
 
   const { data: stockEntries = [] } = useQuery({
-    queryKey: ["stock-entries", orgId],
+    queryKey: ["stock-entries", orgId, projectId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("stock_entries").select("*, materials(name, unit), projects(name)").eq("organization_id", orgId!).order("recorded_at", { ascending: false }).limit(100);
+      let q = supabase.from("stock_entries").select("*, materials(name, unit), projects(name)").eq("organization_id", orgId!).order("recorded_at", { ascending: false }).limit(100);
+      if (projectId) q = q.eq("project_id", projectId);
+      const { data, error } = await q;
       if (error) throw error; return data;
     },
     enabled: !!orgId,

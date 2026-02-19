@@ -20,7 +20,7 @@ import { TablePagination } from "@/components/shared/TablePagination";
 
 type LineItem = { description: string; unit: string; quantity: number; rate: number; previous_quantity: number; current_quantity: number };
 
-export default function Billing() {
+export default function Billing({ projectId }: { projectId?: string }) {
   const { data: orgId } = useOrganization();
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -39,10 +39,11 @@ export default function Billing() {
   });
 
   const { data: bills = [] } = useQuery({
-    queryKey: ["ra-bills", orgId, selectedProject],
+    queryKey: ["ra-bills", orgId, projectId || selectedProject],
     queryFn: async () => {
       let q = supabase.from("ra_bills").select("*, projects(name)").eq("organization_id", orgId!).order("created_at", { ascending: false });
-      if (selectedProject !== "all") q = q.eq("project_id", selectedProject);
+      if (projectId) q = q.eq("project_id", projectId);
+      else if (selectedProject !== "all") q = q.eq("project_id", selectedProject);
       const { data, error } = await q; if (error) throw error; return data;
     },
     enabled: !!orgId,

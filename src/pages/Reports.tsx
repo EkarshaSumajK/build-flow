@@ -18,7 +18,7 @@ import { Download, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, BarCha
 
 const COLORS = ["hsl(220, 70%, 50%)", "hsl(142, 71%, 45%)", "hsl(38, 92%, 50%)", "hsl(0, 72%, 51%)", "hsl(210, 15%, 47%)", "hsl(280, 60%, 50%)"];
 
-export default function Reports() {
+export default function Reports({ projectId }: { projectId?: string }) {
   const { data: orgId } = useOrganization();
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const [drillDownType, setDrillDownType] = useState<string | null>(null);

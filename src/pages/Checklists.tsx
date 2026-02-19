@@ -103,7 +103,7 @@ const getResultColor = (result: string) => {
   return "bg-amber-500/10 text-amber-600 border-amber-200";
 };
 
-export default function Checklists() {
+export default function Checklists({ projectId }: { projectId?: string }) {
   const { data: orgId } = useOrganization();
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -139,9 +139,11 @@ export default function Checklists() {
   });
 
   const { data: inspections = [], isLoading: inspectionsLoading } = useQuery<Inspection[]>({
-    queryKey: ["inspections", orgId],
+    queryKey: ["inspections", orgId, projectId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("inspections").select("*, projects(name)").eq("organization_id", orgId!).order("created_at", { ascending: false });
+      let q = supabase.from("inspections").select("*, projects(name)").eq("organization_id", orgId!).order("created_at", { ascending: false });
+      if (projectId) q = q.eq("project_id", projectId);
+      const { data, error } = await q;
       if (error) throw error;
       return (data || []) as unknown as Inspection[];
     },
