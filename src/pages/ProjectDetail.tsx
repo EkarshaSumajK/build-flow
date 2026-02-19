@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense, useMemo } from "react";
+import { useState, useEffect, lazy, Suspense, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -83,6 +83,13 @@ export default function ProjectDetail() {
   });
 
   const id = project?.id;
+
+  // Redirect UUID URLs to project_code URLs
+  useEffect(() => {
+    if (project?.project_code && projectCode !== project.project_code) {
+      navigate(`/projects/${project.project_code}`, { replace: true });
+    }
+  }, [project, projectCode, navigate]);
 
   const { data: tasks = [] } = useQuery({
     queryKey: ["tasks", id],
