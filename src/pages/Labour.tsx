@@ -20,6 +20,7 @@ import { formatCurrency, formatDate, statusColor } from "@/lib/formatters";
 import { AttendanceCalendar } from "@/components/labour/AttendanceCalendar";
 import { WorkerTaskAssignment } from "@/components/labour/WorkerTaskAssignment";
 import { PayrollCalculator } from "@/components/labour/PayrollCalculator";
+import { BulkWorkerUpload } from "@/components/labour/BulkWorkerUpload";
 import { TablePagination } from "@/components/shared/TablePagination";
 
 export default function Labour({ projectId }: { projectId?: string }) {
@@ -281,9 +282,12 @@ export default function Labour({ projectId }: { projectId?: string }) {
         </TabsContent>
 
         <TabsContent value="workers" className="mt-4">
-          <div className="mb-4 relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search workers..." value={search} onChange={(e) => handleSearchChange(e.target.value)} className="pl-10" />
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="Search workers..." value={search} onChange={(e) => handleSearchChange(e.target.value)} className="pl-10" />
+            </div>
+            {can("workers:manage") && <BulkWorkerUpload />}
           </div>
           <div className="overflow-x-auto -mx-3 sm:mx-0">
             <Card className="min-w-[600px] sm:min-w-0">
