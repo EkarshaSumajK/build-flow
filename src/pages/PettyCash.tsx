@@ -20,17 +20,12 @@ import { formatCurrency, formatDate } from "@/lib/formatters";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { TablePagination } from "@/components/shared/TablePagination";
 
-const EXPENSE_CATEGORIES = [
-  "general", "transport", "food", "tools", "office", "utilities", "miscellaneous"
-];
+const EXPENSE_CATEGORIES = ["general", "transport", "food", "tools", "office", "utilities", "miscellaneous"];
 
 const CATEGORY_COLORS: Record<string, string> = {
-  general: "bg-primary/10 text-primary",
-  transport: "bg-blue-100 text-blue-700",
-  food: "bg-orange-100 text-orange-700",
-  tools: "bg-purple-100 text-purple-700",
-  office: "bg-green-100 text-green-700",
-  utilities: "bg-yellow-100 text-yellow-700",
+  general: "bg-primary/10 text-primary", transport: "bg-blue-100 text-blue-700",
+  food: "bg-orange-100 text-orange-700", tools: "bg-purple-100 text-purple-700",
+  office: "bg-green-100 text-green-700", utilities: "bg-yellow-100 text-yellow-700",
   miscellaneous: "bg-muted text-muted-foreground",
 };
 
@@ -44,37 +39,33 @@ export default function PettyCash({ projectId }: { projectId?: string }) {
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
-  const [selectedProject, setSelectedProject] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [dateFrom, setDateFrom] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 30);
+    const d = new Date(); d.setDate(d.getDate() - 30);
     return d.toISOString().split("T")[0];
   });
   const [dateTo, setDateTo] = useState(new Date().toISOString().split("T")[0]);
 
-  const emptyForm = { project_id: "", amount: "", category: "general", description: "", date: new Date().toISOString().split("T")[0], receipt_number: "" };
+  const emptyForm = { project_id: projectId || "", amount: "", category: "general", description: "", date: new Date().toISOString().split("T")[0], receipt_number: "" };
   const [form, setForm] = useState(emptyForm);
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", orgId],
     queryFn: async () => {
       const { data, error } = await supabase.from("projects").select("id, name").eq("organization_id", orgId!);
-      if (error) throw error;
-      return data;
+      if (error) throw error; return data;
     },
-    enabled: !!orgId,
+    enabled: !!orgId && !projectId,
   });
 
   const { data: entries = [] } = useQuery({
-    queryKey: ["petty-cash", orgId, selectedProject, dateFrom, dateTo],
+    queryKey: ["petty-cash", orgId, projectId, dateFrom, dateTo],
     queryFn: async () => {
       let q = supabase.from("petty_cash_entries").select("*, projects(name)").eq("organization_id", orgId!).gte("date", dateFrom).lte("date", dateTo).order("date", { ascending: false });
-      if (selectedProject !== "all") q = q.eq("project_id", selectedProject);
+      if (projectId) q = q.eq("project_id", projectId);
       const { data, error } = await q;
-      if (error) throw error;
-      return data;
+      if (error) throw error; return data;
     },
     enabled: !!orgId,
   });
@@ -82,21 +73,16 @@ export default function PettyCash({ projectId }: { projectId?: string }) {
   const addEntry = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("petty_cash_entries").insert({
-        organization_id: orgId!,
-        project_id: form.project_id,
-        amount: parseFloat(form.amount),
-        category: form.category,
-        description: form.description || null,
-        date: form.date,
-        receipt_number: form.receipt_number || null,
-        recorded_by: user!.id,
+        organization_id: orgId!, project_id: projectId || form.project_id,
+        amount: parseFloat(form.amount), category: form.category,
+        description: form.description || null, date: form.date,
+        receipt_number: form.receipt_number || null, recorded_by: user!.id,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["petty-cash"] });
-      setDialogOpen(false);
-      setForm(emptyForm);
+      setDialogOpen(false); setForm(emptyForm);
       toast.success("Expense recorded!");
     },
     onError: (e) => toast.error(e.message),
@@ -109,8 +95,7 @@ export default function PettyCash({ projectId }: { projectId?: string }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["petty-cash"] });
-      setDeleteTarget(null);
-      toast.success("Entry deleted!");
+      setDeleteTarget(null); toast.success("Entry deleted!");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -122,45 +107,20 @@ export default function PettyCash({ projectId }: { projectId?: string }) {
     value: entries.filter((e: any) => (e.category || "").toLowerCase() === cat.toLowerCase()).reduce((s: number, e: any) => s + Number(e.amount), 0),
   })).filter((d) => d.value > 0);
 
-  // Also include any categories not in the predefined list
   const otherCategories = entries
     .filter((e: any) => !EXPENSE_CATEGORIES.includes((e.category || "").toLowerCase()))
-    .reduce((acc: Record<string, number>, e: any) => {
-      const cat = e.category || "uncategorized";
-      acc[cat] = (acc[cat] || 0) + Number(e.amount);
-      return acc;
-    }, {});
+    .reduce((acc: Record<string, number>, e: any) => { const cat = e.category || "uncategorized"; acc[cat] = (acc[cat] || 0) + Number(e.amount); return acc; }, {});
   
-  const allCategoryData = [
-    ...categoryData,
-    ...Object.entries(otherCategories).map(([name, value]) => ({
-      name: name.charAt(0).toUpperCase() + name.slice(1),
-      value,
-    }))
-  ];
-
-  const projectData = projects
-    .map((p: any) => ({
-      name: p.name.length > 15 ? p.name.slice(0, 15) + "…" : p.name,
-      amount: entries.filter((e: any) => e.project_id === p.id).reduce((s: number, e: any) => s + Number(e.amount), 0),
-    }))
-    .filter((d) => d.amount > 0)
-    .sort((a, b) => b.amount - a.amount)
-    .slice(0, 8);
+  const allCategoryData = [...categoryData, ...Object.entries(otherCategories).map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value }))];
 
   const filtered = entries.filter((e: any) =>
-    (e.description ?? "").toLowerCase().includes(search.toLowerCase()) ||
-    e.category.toLowerCase().includes(search.toLowerCase())
+    (e.description ?? "").toLowerCase().includes(search.toLowerCase()) || e.category.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Pagination
   const totalPages = Math.ceil(filtered.length / pageSize);
   const paginatedEntries = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  const handleSearchChange = (value: string) => {
-    setSearch(value);
-    setCurrentPage(1);
-  };
+  const handleSearchChange = (value: string) => { setSearch(value); setCurrentPage(1); };
 
   const handlePrint = () => {
     const printWindow = window.open("", "_blank");
@@ -176,10 +136,7 @@ export default function PettyCash({ projectId }: { projectId?: string }) {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Petty Cash</h1>
-          <p className="text-muted-foreground">Track daily expenses and petty cash</p>
-        </div>
+        <div><h1 className="text-2xl font-bold">Petty Cash</h1><p className="text-muted-foreground">Track daily expenses and petty cash</p></div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handlePrint}><Printer className="mr-2 h-4 w-4" />Print Report</Button>
           {can("petty_cash:create") && <Button onClick={() => { setForm(emptyForm); setDialogOpen(true); }}><Plus className="mr-2 h-4 w-4" />Add Expense</Button>}
@@ -190,22 +147,22 @@ export default function PettyCash({ projectId }: { projectId?: string }) {
         <DialogContent>
           <DialogHeader><DialogTitle>Record Expense</DialogTitle></DialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); addEntry.mutate(); }} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Project *</Label>
-              <Select value={form.project_id} onValueChange={(v) => setForm({ ...form, project_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
-                <SelectContent>{projects.map((p: any) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent>
-              </Select>
-            </div>
+            {!projectId && (
+              <div className="space-y-2">
+                <Label>Project *</Label>
+                <Select value={form.project_id} onValueChange={(v) => setForm({ ...form, project_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
+                  <SelectContent>{projects.map((p: any) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label>Amount (₹) *</Label><Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required /></div>
               <div className="space-y-2">
                 <Label>Category</Label>
                 <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {EXPENSE_CATEGORIES.map((c) => (<SelectItem key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</SelectItem>))}
-                  </SelectContent>
+                  <SelectContent>{EXPENSE_CATEGORIES.map((c) => (<SelectItem key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</SelectItem>))}</SelectContent>
                 </Select>
               </div>
             </div>
@@ -228,13 +185,6 @@ export default function PettyCash({ projectId }: { projectId?: string }) {
           <span className="text-muted-foreground">to</span>
           <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-[140px]" />
         </div>
-        <Select value={selectedProject} onValueChange={setSelectedProject}>
-          <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder="All Projects" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Projects</SelectItem>
-            {projects.map((p: any) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
-          </SelectContent>
-        </Select>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -244,10 +194,7 @@ export default function PettyCash({ projectId }: { projectId?: string }) {
       </div>
 
       <Tabs defaultValue="transactions">
-        <TabsList>
-          <TabsTrigger value="transactions">Transactions</TabsTrigger>
-          <TabsTrigger value="reports">Reports</TabsTrigger>
-        </TabsList>
+        <TabsList><TabsTrigger value="transactions">Transactions</TabsTrigger><TabsTrigger value="reports">Reports</TabsTrigger></TabsList>
 
         <TabsContent value="transactions" className="mt-4">
           <div className="mb-4 relative">
@@ -259,7 +206,7 @@ export default function PettyCash({ projectId }: { projectId?: string }) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead><TableHead>Project</TableHead><TableHead>Category</TableHead>
+                    <TableHead>Date</TableHead>{!projectId && <TableHead>Project</TableHead>}<TableHead>Category</TableHead>
                     <TableHead className="hidden sm:table-cell">Description</TableHead><TableHead className="hidden md:table-cell">Receipt #</TableHead><TableHead>Amount</TableHead><TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -269,7 +216,7 @@ export default function PettyCash({ projectId }: { projectId?: string }) {
                   ) : paginatedEntries.map((e: any) => (
                     <TableRow key={e.id}>
                       <TableCell>{formatDate(e.date)}</TableCell>
-                      <TableCell>{(e as any).projects?.name}</TableCell>
+                      {!projectId && <TableCell>{(e as any).projects?.name}</TableCell>}
                       <TableCell><Badge className={CATEGORY_COLORS[e.category] || ""} variant="secondary">{e.category}</Badge></TableCell>
                       <TableCell className="hidden sm:table-cell">{e.description || "—"}</TableCell>
                       <TableCell className="hidden md:table-cell">{e.receipt_number || "—"}</TableCell>
@@ -282,14 +229,7 @@ export default function PettyCash({ projectId }: { projectId?: string }) {
                 </TableBody>
               </Table>
               {filtered.length > 0 && (
-                <TablePagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  totalItems={filtered.length}
-                  pageSize={pageSize}
-                  onPageChange={setCurrentPage}
-                  onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
-                />
+                <TablePagination currentPage={currentPage} totalPages={totalPages} totalItems={filtered.length} pageSize={pageSize} onPageChange={setCurrentPage} onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }} />
               )}
             </Card>
           </div>
@@ -309,22 +249,6 @@ export default function PettyCash({ projectId }: { projectId?: string }) {
                       <Tooltip formatter={(v: number) => formatCurrency(v)} />
                       <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
                     </PieChart>
-                  </ResponsiveContainer>
-                )}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader><CardTitle className="text-base">Expenses by Project</CardTitle></CardHeader>
-              <CardContent className="h-[300px]">
-                {projectData.length === 0 ? <p className="text-center text-muted-foreground py-8">No data for selected period</p> : (
-                  <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={projectData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" fontSize={12} />
-                      <YAxis fontSize={12} />
-                      <Tooltip formatter={(v: number) => formatCurrency(v)} />
-                      <Bar dataKey="amount" fill="hsl(220, 70%, 50%)" radius={[4, 4, 0, 0]} />
-                    </BarChart>
                   </ResponsiveContainer>
                 )}
               </CardContent>

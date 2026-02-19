@@ -57,10 +57,11 @@ export default function Drawings({ projectId }: { projectId?: string }) {
   });
 
   const { data: drawings = [], isLoading } = useQuery({
-    queryKey: ["drawings", orgId, selectedProject],
+    queryKey: ["drawings", orgId, projectId || selectedProject],
     queryFn: async () => {
       let q = supabase.from("drawings").select("*, projects(name)").eq("organization_id", orgId!).order("created_at", { ascending: false });
-      if (selectedProject !== "all") q = q.eq("project_id", selectedProject);
+      if (projectId) q = q.eq("project_id", projectId);
+      else if (selectedProject !== "all") q = q.eq("project_id", selectedProject);
       const { data, error } = await q;
       if (error) throw error;
       return data;

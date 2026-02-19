@@ -39,13 +39,14 @@ export default function Issues({ projectId }: { projectId?: string }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
-  const emptyForm = { title: "", description: "", category: "other", severity: "medium", project_id: "", due_date: "", assigned_to: "", attachments: [] as string[] };
+  const emptyForm = { title: "", description: "", category: "other", severity: "medium", project_id: projectId || "", due_date: "", assigned_to: "", attachments: [] as string[] };
   const [form, setForm] = useState(emptyForm);
 
   const { data: issues = [], isLoading } = useQuery({
-    queryKey: ["issues", orgId, statusFilter],
+    queryKey: ["issues", orgId, statusFilter, projectId],
     queryFn: async () => {
       let query = supabase.from("issues").select("*, projects(name)").eq("organization_id", orgId!).order("created_at", { ascending: false });
+      if (projectId) query = query.eq("project_id", projectId);
       if (statusFilter !== "all") query = query.eq("status", statusFilter as any);
       const { data, error } = await query;
       if (error) throw error;
@@ -61,7 +62,7 @@ export default function Issues({ projectId }: { projectId?: string }) {
       if (error) throw error;
       return data;
     },
-    enabled: !!orgId,
+    enabled: !!orgId && !projectId,
   });
 
   const saveIssue = useMutation({
@@ -73,7 +74,7 @@ export default function Issues({ projectId }: { projectId?: string }) {
         severity: form.severity as any,
         due_date: form.due_date || null,
         assigned_to: form.assigned_to || null,
-        project_id: form.project_id,
+        project_id: projectId || form.project_id,
         attachments: form.attachments,
       };
       if (editingIssue) {
@@ -150,13 +151,15 @@ export default function Issues({ projectId }: { projectId?: string }) {
           <form onSubmit={(e) => { e.preventDefault(); saveIssue.mutate(); }} className="space-y-4">
             <div className="space-y-2"><Label>Title *</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required /></div>
             <div className="space-y-2"><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-            <div className="space-y-2">
-              <Label>Project *</Label>
-              <Select value={form.project_id} onValueChange={(v) => setForm({ ...form, project_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
-                <SelectContent>{projects.map((p: any) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent>
-              </Select>
-            </div>
+            {!projectId && (
+              <div className="space-y-2">
+                <Label>Project *</Label>
+                <Select value={form.project_id} onValueChange={(v) => setForm({ ...form, project_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
+                  <SelectContent>{projects.map((p: any) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Category</Label>
@@ -256,7 +259,7 @@ export default function Issues({ projectId }: { projectId?: string }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Title</TableHead><TableHead className="hidden sm:table-cell">Project</TableHead><TableHead className="hidden md:table-cell">Assigned To</TableHead>
+                <TableHead>Title</TableHead>{!projectId && <TableHead className="hidden sm:table-cell">Project</TableHead>}<TableHead className="hidden md:table-cell">Assigned To</TableHead>
                 <TableHead>Severity</TableHead><TableHead>Status</TableHead><TableHead className="hidden sm:table-cell">Due</TableHead><TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -267,9 +270,9 @@ export default function Issues({ projectId }: { projectId?: string }) {
                 <TableRow key={issue.id} className="cursor-pointer" onClick={() => setSelectedIssue(issue)}>
                   <TableCell>
                     <div className="font-medium">{issue.title}</div>
-                    <div className="text-xs text-muted-foreground sm:hidden">{issue.projects?.name}</div>
+                    {!projectId && <div className="text-xs text-muted-foreground sm:hidden">{issue.projects?.name}</div>}
                   </TableCell>
-                  <TableCell className="hidden sm:table-cell">{issue.projects?.name}</TableCell>
+                  {!projectId && <TableCell className="hidden sm:table-cell">{issue.projects?.name}</TableCell>}
                   <TableCell className="hidden md:table-cell">{issue.assigned_to ? getMemberName(issue.assigned_to) : "—"}</TableCell>
                   <TableCell><Badge className={priorityColor(issue.severity)} variant="secondary">{issue.severity}</Badge></TableCell>
                   <TableCell>

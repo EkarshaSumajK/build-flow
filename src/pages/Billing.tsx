@@ -39,10 +39,11 @@ export default function Billing({ projectId }: { projectId?: string }) {
   });
 
   const { data: bills = [] } = useQuery({
-    queryKey: ["ra-bills", orgId, selectedProject],
+    queryKey: ["ra-bills", orgId, projectId || selectedProject],
     queryFn: async () => {
       let q = supabase.from("ra_bills").select("*, projects(name)").eq("organization_id", orgId!).order("created_at", { ascending: false });
-      if (selectedProject !== "all") q = q.eq("project_id", selectedProject);
+      if (projectId) q = q.eq("project_id", projectId);
+      else if (selectedProject !== "all") q = q.eq("project_id", selectedProject);
       const { data, error } = await q; if (error) throw error; return data;
     },
     enabled: !!orgId,
