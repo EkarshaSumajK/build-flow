@@ -37,6 +37,7 @@ const ClientPortal = lazy(() => import("./pages/ClientPortal"));
 const PortalView = lazy(() => import("./pages/PortalView"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Settings = lazy(() => import("./pages/Settings"));
+const OrgDetail = lazy(() => import("./pages/OrgDetail"));
 const SeedData = lazy(() => import("./pages/SeedData"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -115,6 +116,7 @@ const App = () => (
               <Route path="/client-portal" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ClientPortal /></Suspense></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Profile /></Suspense></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Settings /></Suspense></ProtectedRoute>} />
+              <Route path="/settings/org/:orgId" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><OrgDetail /></Suspense></ProtectedRoute>} />
               <Route path="/seed-data" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><SeedData /></Suspense></ProtectedRoute>} />
               <Route path="/portal/:token" element={<Suspense fallback={<PageLoader />}><PortalView /></Suspense>} />
               <Route path="*" element={<Suspense fallback={<PageLoader />}><NotFound /></Suspense>} />
