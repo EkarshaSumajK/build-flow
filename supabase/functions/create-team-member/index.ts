@@ -152,6 +152,22 @@ Deno.serve(async (req) => {
         { onConflict: "user_id" }
       );
 
+      // Auto-assign to all projects in this org
+      const { data: orgProjects } = await supabaseAdmin
+        .from("projects")
+        .select("id")
+        .eq("organization_id", organization_id);
+
+      if (orgProjects?.length) {
+        await supabaseAdmin.from("project_members").insert(
+          orgProjects.map((p) => ({
+            project_id: p.id,
+            user_id: existingUser.id,
+            role,
+          }))
+        );
+      }
+
       return new Response(
         JSON.stringify({
           success: true,
@@ -202,6 +218,23 @@ Deno.serve(async (req) => {
     if (roleInsertError) {
       console.error("Role assignment error:", roleInsertError);
       throw roleInsertError;
+    }
+
+    // Auto-assign to all projects in this org
+    const { data: orgProjects } = await supabaseAdmin
+      .from("projects")
+      .select("id")
+      .eq("organization_id", organization_id);
+
+    if (orgProjects?.length) {
+      const { error: pmError } = await supabaseAdmin.from("project_members").insert(
+        orgProjects.map((p) => ({
+          project_id: p.id,
+          user_id: newUser.user.id,
+          role,
+        }))
+      );
+      if (pmError) console.error("Project member assignment error:", pmError);
     }
 
     return new Response(
