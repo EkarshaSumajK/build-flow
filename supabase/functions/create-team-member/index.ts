@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verify caller is owner in this org
+    // Verify caller is owner in this org OR its parent org
     const { data: callerRole } = await supabaseAdmin
       .from("user_roles")
       .select("role")
@@ -71,7 +71,28 @@ Deno.serve(async (req) => {
       .eq("organization_id", organization_id)
       .single();
 
-    if (!callerRole || callerRole.role !== "owner") {
+    let isOwner = callerRole?.role === "owner";
+
+    if (!isOwner) {
+      // Check if caller is owner of the parent org
+      const { data: targetOrg } = await supabaseAdmin
+        .from("organizations")
+        .select("parent_organization_id")
+        .eq("id", organization_id)
+        .single();
+
+      if (targetOrg?.parent_organization_id) {
+        const { data: parentRole } = await supabaseAdmin
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", caller.id)
+          .eq("organization_id", targetOrg.parent_organization_id)
+          .single();
+        isOwner = parentRole?.role === "owner";
+      }
+    }
+
+    if (!isOwner) {
       return new Response(
         JSON.stringify({ success: false, error: "Only owners can create team members" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
