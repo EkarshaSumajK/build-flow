@@ -111,6 +111,29 @@ export default function ProjectDetail() {
     enabled: !!id,
   });
 
+  // Fetch all org members for this project's organization (auto team list)
+  const { data: projectOrgMembers = [] } = useQuery({
+    queryKey: ["project-org-members", project?.organization_id],
+    queryFn: async () => {
+      const orgId = project!.organization_id;
+      const { data: profiles, error: pErr } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, email, phone, avatar_url")
+        .eq("organization_id", orgId);
+      if (pErr) throw pErr;
+      const { data: roles, error: rErr } = await supabase
+        .from("user_roles")
+        .select("user_id, role")
+        .eq("organization_id", orgId);
+      if (rErr) throw rErr;
+      return (profiles || []).map(p => ({
+        ...p,
+        role: roles?.find(r => r.user_id === p.user_id)?.role || null,
+      }));
+    },
+    enabled: !!project?.organization_id,
+  });
+
   const saveTask = useMutation({
     mutationFn: async () => {
       const payload = {
@@ -200,7 +223,7 @@ export default function ProjectDetail() {
     setTaskDialogOpen(true);
   };
 
-  const getMemberName = (userId: string) => members.find((m) => m.user_id === userId)?.full_name || userId?.slice(0, 8);
+  const getMemberName = (userId: string) => projectOrgMembers.find((m) => m.user_id === userId)?.full_name || members.find((m) => m.user_id === userId)?.full_name || userId?.slice(0, 8);
 
   if (isLoading) return <div className="text-center py-12 text-muted-foreground">Loading...</div>;
   if (!project) return <div className="text-center py-12 text-muted-foreground">Project not found</div>;
@@ -270,7 +293,7 @@ export default function ProjectDetail() {
                     <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="unassigned">Unassigned</SelectItem>
-                      {members.map((m) => (<SelectItem key={m.user_id} value={m.user_id}>{m.full_name}</SelectItem>))}
+                      {projectOrgMembers.map((m) => (<SelectItem key={m.user_id} value={m.user_id}>{m.full_name}</SelectItem>))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -402,60 +425,19 @@ export default function ProjectDetail() {
             </TabsContent>
 
             <TabsContent value="team" className="mt-4 space-y-4">
-              <div className="flex justify-end">
-                {canManage && (
-                  <Dialog open={memberDialogOpen} onOpenChange={setMemberDialogOpen}>
-                    <DialogTrigger asChild><Button size="sm"><UserPlus className="mr-2 h-4 w-4" />Add Member</Button></DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader><DialogTitle>Add Team Member</DialogTitle></DialogHeader>
-                      <form onSubmit={(e) => { e.preventDefault(); addMember.mutate(); }} className="space-y-4">
-                        <div className="space-y-2">
-                          <Label>Member</Label>
-                          <Select value={newMemberId} onValueChange={setNewMemberId}>
-                            <SelectTrigger><SelectValue placeholder="Select member" /></SelectTrigger>
-                            <SelectContent>
-                              {members.filter(m => !projectMembers.some((pm: any) => pm.user_id === m.user_id)).map((m) => (
-                                <SelectItem key={m.user_id} value={m.user_id}>{m.full_name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Role</Label>
-                          <Select value={newMemberRole} onValueChange={setNewMemberRole}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="project_manager">Project Manager</SelectItem>
-                              <SelectItem value="site_engineer">Site Engineer</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <Button type="submit" className="w-full" disabled={addMember.isPending || !newMemberId}>Add Member</Button>
-                      </form>
-                    </DialogContent>
-                  </Dialog>
-                )}
-              </div>
               <Card>
                 <Table>
                   <TableHeader>
-                    <TableRow><TableHead>Name</TableHead><TableHead>Role</TableHead><TableHead>Joined</TableHead>{canManage && <TableHead>Actions</TableHead>}</TableRow>
+                    <TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Role</TableHead></TableRow>
                   </TableHeader>
                   <TableBody>
-                    {projectMembers.length === 0 ? (
-                      <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">No team members assigned</TableCell></TableRow>
-                    ) : projectMembers.map((pm: any) => (
-                      <TableRow key={pm.id}>
-                        <TableCell className="font-medium">{getMemberName(pm.user_id)}</TableCell>
-                        <TableCell className="capitalize">{pm.role.replace("_", " ")}</TableCell>
-                        <TableCell>{formatDate(pm.joined_at)}</TableCell>
-                        {canManage && (
-                          <TableCell>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => removeMember.mutate(pm.id)}>
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
-                          </TableCell>
-                        )}
+                    {projectOrgMembers.length === 0 ? (
+                      <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-8">No team members in this organization</TableCell></TableRow>
+                    ) : projectOrgMembers.map((m) => (
+                      <TableRow key={m.user_id}>
+                        <TableCell className="font-medium">{m.full_name}</TableCell>
+                        <TableCell className="text-muted-foreground text-sm">{m.email || "—"}</TableCell>
+                        <TableCell><Badge variant="secondary" className="capitalize">{m.role?.replace("_", " ") || "—"}</Badge></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
