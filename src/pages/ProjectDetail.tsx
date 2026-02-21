@@ -223,7 +223,7 @@ export default function ProjectDetail() {
     setTaskDialogOpen(true);
   };
 
-  const getMemberName = (userId: string) => members.find((m) => m.user_id === userId)?.full_name || userId?.slice(0, 8);
+  const getMemberName = (userId: string) => projectOrgMembers.find((m) => m.user_id === userId)?.full_name || members.find((m) => m.user_id === userId)?.full_name || userId?.slice(0, 8);
 
   if (isLoading) return <div className="text-center py-12 text-muted-foreground">Loading...</div>;
   if (!project) return <div className="text-center py-12 text-muted-foreground">Project not found</div>;
@@ -293,7 +293,7 @@ export default function ProjectDetail() {
                     <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="unassigned">Unassigned</SelectItem>
-                      {members.map((m) => (<SelectItem key={m.user_id} value={m.user_id}>{m.full_name}</SelectItem>))}
+                      {projectOrgMembers.map((m) => (<SelectItem key={m.user_id} value={m.user_id}>{m.full_name}</SelectItem>))}
                     </SelectContent>
                   </Select>
                 </div>
